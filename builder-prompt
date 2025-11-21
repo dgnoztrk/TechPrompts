@@ -219,3 +219,256 @@ Tüm proje **senior seviyede**, temiz mimari, anlaşılır kod, yorum satırlar�
 ✔ Senior seviyede → evet, net ve tam.
 
 Bu tasarım **mantıksal olarak tutarlı**, **scalable**, **profesyonel**, **gerçek hayat kullanımına uygun** ve AI ile doğrudan geliştirilebilir yapıdadır.
+
+Aşağıda, belirttiğin **tüm hatalar**, eksikler ve yeni gereksinimler doğrultusunda **tamamen güncellenmiş**, hatasız build alacak, tema sistemi tam çalışan, SQLite yazımı doğru yapılacak ve .sln dosyası dahil her şey doğru oluşturulacak bir **“düzeltme + geliştirme MASTER PROMPT’u”** veriyorum.
+
+Bu prompt’u AI’a verdiğinde artık:
+
+* Builder → içerikleri **yalnızca SQLite’a** kaydedecek
+* APPSETTINGS’E ASLA içerik yazmayacak
+* Müşteri sitesinin .sln dosyası üretilecek
+* En az **5 hazır Bootstrap + jQuery tabanlı tema** olacak
+* Builder → tema seçtirecek
+* Üretilen site → seçilen temaya göre tamamen farklı görünümde aktive olacak
+* Base tema dosyaları eksiksiz kopyalanacak
+* Admin panel + front-end **hiçbir build hatası olmadan** çalışacak
+* Multi-line description gibi alanlar build bozmadan gerçek bir model property’si olacak
+
+Sonuç: Senior düzey, derlenebilir, üretilebilir, görsel olarak güzel bir website builder.
+
+---
+
+# ✅ **KOPYALA-YAPIŞTIR DÜZELTME + GELİŞTİRME MASTER PROMPT**
+
+Aşağıdaki talimatları **harfiyen** uygula ve mevcut projede AI tarafından yapılan tüm hataları düzelt.
+Amaç:
+**Müşteriye özel .NET 10 MVC siteleri üreten builder uygulamasının tamamen hatasız, teması tam çalışan ve SQLite kullanan doğru versiyonunu üretmek.**
+
+---
+
+# 🚨 ÖNEMLİ DÜZELTİLMESİ GEREKENLER
+
+### ❌ 1. Builder içerikleri appsettings’e yazıyor → Bu yanlış
+
+✔ Doğru: İçerikler **builder projesinin kendi SQLite DB’sine** yazılmalı
+Çünkü appsettings runtime config içindir, içerik depolama için değil.
+
+### ❌ 2. Oluşturulan sitenin teması yok / bozuk görünüm
+
+✔ Her müşteri sitesi için **Bootstrap + jQuery tabanlı 5 farklı tema** hazırlanacak
+✔ Builder sayfasında kullanıcı bu temalardan birini seçecek
+✔ Üretilen müşteri sitesi **seçilen temanın tüm css/js** dosyalarıyla birlikte kopyalanacak
+✔ Tema base klasörü:
+
+```
+Templates/Themes/
+    Theme1/
+    Theme2/
+    Theme3/
+    Theme4/
+    Theme5/
+```
+
+### ❌ 3. Oluşturulan sitenin .sln dosyası oluşturulmamış
+
+✔ Mutlaka `{SiteName}.sln` oluşturulmalı
+✔ İçerisine ilgili .csproj referansı eklenmeli
+
+### ❌ 4. Description alanı multi-line olduğunda build hatası oluyordu
+
+✔ Düzeltilmeli
+✔ Multi-line açıklamalar tamamen güvenli şekilde modele yazılmalı
+✔ View modelleri, domain modelleri, seed işlemleri build bozmamalı
+✔ Tüm özel karakterler encode edilmeli
+
+### ❌ 5. Admin panel ile site görsel olarak çok zayıf
+
+✔ Admin panel için modern bootstrap 5 admin template kullanılmalı
+✔ Front-end site için tema seçimine göre farklı layout’lar uygulanmalı
+✔ Slider, ürün kartları, about, footer vb. görsel elementler Bootstrap üzerinden şık biçimde tasarlanmalıdır
+
+---
+
+# 🛠️ **YENİ GEREKSİNİMLER VE KURALLAR**
+
+## ✔ BUILDER UYGULAMASI (ANA UYGULAMA)
+
+* Yalnızca bir “Builder” sayfası olacak
+* Aldığı tüm içerikleri **SQLite üzerinde tutacak**
+* appsettings’e ASLA yazmayacak
+* Builder üzerinden aşağıdaki alanlar alınacak:
+
+  * Site adı
+  * Açıklama (multi-line)
+  * Logo (opsiyonel)
+  * Tema seçimi (5 tema)
+  * Slider içerikleri
+  * Ürün içerikleri
+  * Vizyon / Misyon
+  * Hakkımızda
+  * İletişim bilgileri
+  * Özel sayfalar
+* Builder bu verileri alıp **tam çalışan bağımsız bir MVC projesine dönüştürecek**
+
+---
+
+## ✔ OLUŞTURULAN MÜŞTERİ SİTESİ
+
+### 🌈 **5 TEMALI, PROFESYONEL GÖRÜNÜM**
+
+Tema klasörleri örnek:
+
+```
+Templates/Themes/Theme1/
+Templates/Themes/Theme2/
+Templates/Themes/Theme3/
+Templates/Themes/Theme4/
+Templates/Themes/Theme5/
+```
+
+Her temada:
+
+```
+css/theme.css
+js/theme.js
+views/layout.cshtml (tema özel)
+views/partials/header.cshtml
+views/partials/footer.cshtml
+views/partials/navbar.cshtml
+img/default-logo.png
+```
+
+### 🔐 **Admin Panel**
+
+* `/admin` giriş ekranı
+* Username/password → SITENIN KENDİ appsettings.json'dan
+* 1 günlük cookie
+* Hakkımızda / Vizyon / Misyon
+* Slider yönetimi
+* Ürün yönetimi
+* Logo yükleme
+* Tema renklerini değiştirme (color picker)
+* Özel sayfa oluşturma
+* jQuery AJAX + Bootstrap modal kullanımı
+
+### 📝 **Site İçeriği**
+
+* Anasayfa (slider + özet içerik)
+* Hakkımızda
+* Vizyon/Misyon
+* Ürünler (grid + detay)
+* İletişim formu (SQLite'a kayıt)
+* Dinamik özel sayfalar
+* Bootstrap 5 responsive yapısı
+* jQuery animasyonlar
+
+---
+
+## ✔ OLUŞTURULACAK KLASÖR YAPISI
+
+```
+CustomerSites/{SiteName}/
+    {SiteName}.sln
+    src/
+        {SiteName}.Web/
+            {SiteName}.Web.csproj
+            Controllers/
+            Models/
+            Views/
+            wwwroot/
+                css/
+                js/
+                media/
+                    slider/
+                    products/
+                    logo/
+                themes/
+                    (seçilen tema buraya kopyalanacak)
+            appsettings.json
+            Program.cs
+            Migrations/
+    Database/
+        site.db
+```
+
+---
+
+## ✔ PROJE OLUŞTURMA SERVİSİ İÇİN KURALLAR
+
+### 1. Solution oluşturulmalı
+
+* `.sln` dosyası dotnet CLI veya template üzerinden oluşturulmalı
+
+### 2. Tüm tema dosyaları doğru klasöre kopyalanmalı
+
+* wwwroot/themes/{SelectedTheme}
+
+### 3. Multi-line açıklamalar hatasız işlenmeli
+
+* Parametre geçişi
+* File writing
+* Migration seeding
+* Model property assignment
+  hiçbir şekilde build hatasına sebep olmamalı
+
+### 4. Kod üretimi her zaman **%100 build edilebilir** olmalı
+
+* Namespace hatası
+* Eksik klasör
+* Eksik csproj reference
+* Eksik .sln reference
+  KALMAMALI
+
+### 5. SQLite migration mutlaka otomatik çalışmalı
+
+### 6. Bootstrap + jQuery dosyaları eksiksiz eklenmeli
+
+---
+
+## 🧪 **TEST KRİTERİ**
+
+“ABC İnşaat” sitesi oluşturulduğunda:
+
+* ABCInsaat.sln oluşmalı
+* Seçilen tema (ör: Tema3) aktif olmalı
+* Navbar + slider + footer tamamen temanın tasarımını yansıtmalı
+* Admin panel Bootstrap admin arayüzü olmalı
+* Slider eklenip görsel olarak sayfada görünmeli
+* Ürünler kart yapısıyla listelenmeli
+* Özel sayfa HTML editor ile kaydedilip görünmeli
+* Tüm içerikler SQLite’da tutulmalı
+* Hiçbir build hatası olmamalı
+* Hiçbir view bozuk olmamalı
+
+---
+
+# 📦 **TESLİM BEKLENTİSİ**
+
+Bu prompt sonucunda AI bana şunları üretmelidir:
+
+* Builder uygulaması (SQLite tabanlı)
+* 5 hazır Bootstrap teması + jQuery
+* Tüm template dosyaları
+* Senkron çalışan ProjectBuilder + TemplateRenderer
+* Full çalışan müşteri sitesi örneği
+* .sln, csproj, migration, wwwroot, admin panel dosyaları
+* Build hatası 0
+* UI hatası 0
+
+---
+
+# 🧠 **ANALİZ — BU PROMPT MANTIKLI VE TUTARLI MI?**
+
+✔ Builder sadece içerik oluşturuyor → doğru
+✔ Builder SQLite kullanıyor → doğru
+✔ Appsettings’e içerik yazmak kaldırıldı → doğru
+✔ 5 tema zorunlu → doğru
+✔ Front-end profesyonel görünüm → doğru
+✔ jQuery + Bootstrap zorunlu → doğru
+✔ .sln üretimi zorunlu → doğru
+✔ Multi-line description build bozmayacak → doğru
+✔ Tema seçimi builder’da → doğru
+✔ Her site tamamen bağımsız → doğru
+✔ Admin panel güçlü → doğru
+
+Her şey birbiriyle uyumlu, gerçek hayatta uygulanabilir, senior seviye bir platform ortaya çıkarır.
