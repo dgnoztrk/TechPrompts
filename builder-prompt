@@ -1,0 +1,221 @@
+Aşağıdaki talimatları **harfiyen** uygula. Amacımız:
+**Müşteriye özel, tamamen bağımsız .NET 10 MVC websiteleri üreten minimal, hızlı, profesyonel bir website builder uygulaması geliştirmek.**
+
+---
+
+# 🎯 **GENEL AMAÇ (DOĞRU VE NET TANIM)**
+
+Ben bir .NET geliştiricisiyim. Müşterilerime sürekli kurumsal websiteleri üretiyorum. Bunun için **tek bir basit ana uygulama** üzerinden müşteriye özel, bağımsız çalışan, kendi admin paneline sahip, görsel teması değiştirilebilir, tamamen kişiselleştirilebilir bir .NET 10 MVC projesi üretmek istiyorum.
+
+Bu ana uygulama:
+
+* **Sadece bir “Builder” sayfasından oluşacak**
+* Kendi veritabanı olmayacak
+* Kullanıcı builder sayfasına içerikleri dolduracak
+* Builder bu verileri kullanarak **yeni bir müşteri sitesi oluşturacak**
+* Oluşturulan her müşteri sitesi:
+
+  * Kendi SQLite DB’sine sahip olacak
+  * Kendi `/admin` paneline sahip olacak
+  * Kendi Authentication sistemine sahip olacak
+  * Kendi tema renklerini, logosunu değiştirebilecek
+  * Kendi içerik yönetimi tamamen admin üzerinden yapılacak
+
+Her üretilen site, tamamen ayrı ve bağımsız çalışacak profesyonel bir .NET 10 MVC uygulaması olmalıdır.
+
+---
+
+# 🧩 **ANA UYGULAMANIN (BUILDER UYGULAMASININ) DETAYLARI**
+
+### ✔ Ana uygulama .NET 10 olacak
+
+Ancak .NET Core versiyon bilgisi **ana uygulamanın appsettings.json**'undan okunacak.
+(örn: “TargetFramework”: “net10.0”)
+
+### ✔ Ana uygulamada veritabanı yok
+
+* Sadece bir `BuilderController` olacak
+* `/builder` ekranı olacak
+* Kullanıcı burada site bilgilerini dolduracak
+* Klik → “Siteyi Oluştur”
+* Tam çalışan bir MVC projesi CustomerSites/{SiteName} klasörüne üretilecek
+
+### ✔ Ana uygulama yalnızca proje üretir
+
+Hiçbir yönetim, içerik giriş işlemi ana uygulamada olmaz.
+Tüm yönetim **oluşturulan sitenin kendi admin panelinde** yapılır.
+
+---
+
+# 🧱 **OLUŞTURULACAK MÜŞTERİ SİTESİNİN DETAYLI ÖZELLİKLERİ**
+
+Her müşteri sitesi tamamen bağımsız, profesyonel, kurumsal bir MVC projesi olmalıdır.
+
+### ✔ .NET 10 MVC
+
+### ✔ EF Core + SQLite
+
+### ✔ jQuery + Bootstrap 5
+
+### ✔ Razor View Engine
+
+### ✔ Varsayılan tema ama renkleri değiştirilebilir
+
+### ✔ Logo admin panelinden değiştirilebilir
+
+### ✔ Tüm medya (resim/video) GUID ile saklanır
+
+### ✔ wwwroot/media klasöründe tutulur
+
+---
+
+# 🔐 **HER SİTENİN KENDİ ADMİN PANELİ OLMALI**
+
+### `/admin` → Login
+
+### `/admin/dashboard` → Yönetim
+
+### ✔ Authentication
+
+* Cookie-based auth
+* 1 günlük cookie
+* Kullanıcı adı ve şifre: **Oluşturulan sitenin kendi appsettings.json**’undan okunacak
+
+  ```
+  "Admin": {
+      "Username": "admin",
+      "Password": "admin"
+  }
+  ```
+
+### ✔ Admin Panel Özellikleri
+
+* Hakkımızda düzenleme
+* Vizyon/Misyon
+* Slider yönetimi (resim/video)
+* Ürünler yönetimi
+* İletişim bilgileri düzenleme
+* Dinamik özel sayfa oluşturma
+* Logo yükleme (GUID ile kaydet)
+* Tema renklerini yönetme (primary, secondary vb.)
+* Tüm içerikler SQLite DB’de tutulur
+* Tüm dosya yolları SQLite DB’de tutulur
+* jQuery ile modal, ajax işlemleri
+* Bootstrap admin arayüzü
+
+Her müşteri sitesi admin panelinden tamamen yönetilen, profesyonel bir CMS gibi çalışmalıdır.
+
+---
+
+# 🧩 **MEDYA YÖNETİMİ (HER SİTE İÇİN ÖZEL)**
+
+* Medya yükleme rotası → `/admin/media/upload`
+* wwwroot/media/slider
+* wwwroot/media/products
+* wwwroot/media/logo
+* Dosyalar GUID ile kaydedilir
+* DB’de dosya yolu tutulur
+* jQuery ile önizleme yapılabilir
+* Video yükleme desteği olmalı
+
+---
+
+# 🏗 **PROJE ÜRETME SERVİSİ (BUILDER TARAFI)**
+
+### ✔ Template yapısı kullanılmalı
+
+* Controller şablonu
+* View şablonu
+* Model şablonu
+* CSS/JS şablonu
+* Admin panel şablonu
+
+### ✔ ITemplateRenderer
+
+Placeholder → İçerik dönüşümü
+
+### ✔ ProjectBuilder
+
+* CustomerSites/{SiteName} oluştur
+* MVC dosyalarını template’lerden üret
+* SQLite DB oluştur
+* Migration çalıştır
+* Admin default kullanıcıyı seed et
+* wwwroot/media klasörlerini oluştur
+* Tema renklerini ekle
+* Varsayılan logo dosyasını kopyala
+
+---
+
+# 🎨 **TEMA VE LOGO DİNAMİKLİĞİ**
+
+Her site admin panelinden şunları değiştirebilmeli:
+
+* Primary renk
+* Secondary renk
+* Navbar rengi
+* Footer rengi
+* Logo (guid.png)
+
+Admin panelde Bootstrap color picker olabilir.
+
+Tema ayarları DB’de saklanmalı.
+Frontend bu renkleri layout üzerindeki CSS’e yansıtmalı.
+
+---
+
+# 🧪 **TEST SENARYOSU**
+
+Builder ekranından:
+
+> Site Adı: “ABC İnşaat”
+
+Oluştur dediğimde:
+
+1. CustomerSites/ABCInsaat klasörü oluşturulmalı
+2. İçinde tam çalışan .NET 10 MVC projesi olmalı
+3. `/admin` sayfası giriş ekranı olmalı
+4. Admin panelinde logo güncellenebilmeli
+5. Tema renkleri değiştirilebilmeli
+6. Slider eklenebilmelİ
+7. Ürün eklenebilmelİ
+8. Özel sayfa oluşturulabilmelİ
+9. Tüm medya GUID'li kaydolmalı
+
+---
+
+# 📦 **TESLİM BEKLENTİSİ**
+
+Bu prompt’a karşılık olarak tamamen oluşturulacak:
+
+* Ana uygulama (builder) solution
+* BuilderController + View
+* Templating sistemi
+* ProjectBuilder servisi
+* ITemplateRenderer servisi
+* Template dosyaları
+* Örnek oluşturulmuş müşteri sitesi
+* Müşteri sitesi tam çalışan MVC projesi
+* Admin panel tüm Controller/Model/View’leri
+* Migration ve SQLite DB
+* Tema & logo yönetimi
+* Medya yönetimi
+* Kullanım dökümantasyonu
+
+Tüm proje **senior seviyede**, temiz mimari, anlaşılır kod, yorum satırları, şık bir frontend ve üretilebilir bir yapıda olmalıdır.
+
+---
+
+# 🔍 **MANTIK ANALİZİ (SENIOR UYUM KONTROLÜ)**
+
+✔ Ana uygulama veri tutmuyor → doğru, çünkü sadece builder.
+✔ Her site kendi DB’sine sahip → doğru, çünkü bağımsız çalışmalı.
+✔ Admin auth site bazlı → doğru.
+✔ Tema & logo site bazlı → doğru.
+✔ Admin panel tüm yönetimi sağlar → doğru.
+✔ Her şey minimal ama güçlü → doğru.
+✔ Kod üretim mantığı tek merkezli → doğru.
+✔ Tüm gereksinimler uyumlu → çakışma yok.
+✔ Senior seviyede → evet, net ve tam.
+
+Bu tasarım **mantıksal olarak tutarlı**, **scalable**, **profesyonel**, **gerçek hayat kullanımına uygun** ve AI ile doğrudan geliştirilebilir yapıdadır.
