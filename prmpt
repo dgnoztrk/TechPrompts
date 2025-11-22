@@ -1,0 +1,272 @@
+Bu sürüm:
+✔ Razor syntax çakışmalarını önleyen
+✔ CSS içindeki `@` karakterlerinin encode edilmesi gerekliliğini belirten
+# **PROMPT BAŞLIYOR**
+
+Aşağıdaki özelliklere %100 uyan, eksiksiz çalışan, derlenebilir, bug’sız, production-ready bir **.NET 10 Website Generator Console Application** üret.
+
+Bu uygulama çalıştırıldığında kullanıcıdan aldığı cevaplara göre sıfırdan tamamen çalışan bir **ASP.NET Core 10 MVC Web Uygulaması** oluşturacak. Razor View dosyalarında `@` karakteri ile CSS `@` işareti arasındaki karışıklıkları önlemek için gerekli Razor-escape kurallarına (örn. `@@`) dikkat edeceksin.
+
+---
+
+# ⚠ **(KRİTİK) Razor & CSS İçin Zorunlu Kurallar – Sıkı Uyum Gerekiyor**
+
+Aşağıdaki kurallar **kesinlikle zorunludur**:
+
+### ✔ Razor Views içinde CSS `@` kullanımında escape yap:
+
+* CSS içinde `@media`, `@keyframes` vb. kullanılırken Razor yanlış yorumlayabilir
+* Bu nedenle Razor View içinde CSS yazıyorsan **`@@media`**, **`@@keyframes`** şeklinde escape etmek zorundasın
+
+### ✔ Razor directive ile çakışan ifadelerden kaçın:
+
+* Örn: `@page`, `@model`, `@inject` Razor Pages’e özeldir
+* Biz MVC kullanıyoruz → Razor Page directive’leri **KULLANMA**
+
+### ✔ HTML içindeki mail adresleri veya `@` içeren ifadeleri dikkatli yaz:
+
+* Örn: bir e-posta adresi: `@@example.com`
+
+### ✔ Inline C# ile CSS karışıklığını önle:
+
+* Gereksiz `@{}` blokları oluşturma
+* CSS içinde `@{}` yazma
+
+### ✔ Layout içinde `@RenderBody()` gibi Razor fonksiyonlarının doğru escape edilmesi:
+
+* Bunlar Razor fonksiyonudur → escape ETME
+* Escape sadece CSS @ işareti içindir
+
+### ✔ JavaScript içinde string olarak `@` geçiyorsa:
+
+* Gerekirse `"@@something"` yaz
+
+Bu talimatlara **tüm View’lar için** uyacaksın.
+
+---
+
+# 🌐 **1) Platform ve Gereksinimler**
+
+### ✔ Kullanılacak Framework:
+
+**.NET 10 (ASP.NET Core 10 MVC)**
+Bu çok önemlidir; .NET 10 projeye uygun formatta oluşturulacak.
+
+### ✔ Kullanılacak Teknolojiler
+
+* ASP.NET Core 10 MVC
+* EF Core SQLite
+* Cookie Authentication
+* Razor Views (Razor Pages asla değil)
+* Bootstrap 5
+* jQuery
+* FontAwesome
+* ImageSharp (thumbnail için)
+
+---
+
+# 🧬 **2) Console Generator Özellikleri**
+
+Console uygulaması:
+
+* Tüm bilgileri kullanıcıdan alır
+* 5 premium tema sunar
+* Tema seçimine göre tüm layout/views/css/js dosyalarını oluşturur
+* Migration’ları otomatik üretir
+* `dotnet ef database update` komutunu otomatik çalıştırır
+* `GeneratedSites/{ProjectName}/` altında proje klasörü oluşturur
+* Tamamen çalışan MVC projesi üretir
+* Razor `@` güvenlik kurallarını View’larda doğru uygular
+
+---
+
+# 🏗 **3) Proje Mimarisi (.NET 10 MVC)**
+
+```
+/Controllers
+/Models
+/Views
+    /Shared
+    /Home
+    /Products
+    /Pages
+    /Admin
+/Services
+/Repositories
+/Migrations
+/wwwroot
+/Themes
+```
+
+### ✔ Razor Pages KULLANILMAYACAK
+
+Yalnızca MVC Views.
+
+### ✔ Hiçbir View içinde `@page` directive’i olmayacak.
+
+---
+
+# 🛡 **4) Admin Paneli Özellikleri**
+
+Admin paneli:
+
+* Tamamen authorize
+* Cookie authentication
+* Admin bilgileri appsettings.json içinde
+* Admin giriş/çıkış loglanacak
+* Tema değiştirme özelliği olacak
+* Resim upload → guid + timestamp
+* Tüm yönetilebilir alanlar:
+
+  * Slider
+  * Ürünler
+  * Sayfa içerikleri (hakkımızda–vizyon–misyon)
+  * Site Ayarları
+  * İletişim Ayarları (SMTP + Maps embed)
+  * Custom CSS / JS
+  * Logo yükleme
+  * Google Analytics
+  * Log listeleme
+
+---
+
+# 🎨 **5) Premium Tema Gereksinimleri**
+
+Toplam 5 premium tema:
+
+1. Royal Dark Blue
+2. Elegant Gold & White
+3. Futuristic Neon
+4. Minimal Pure
+5. Modern Gradient Purple
+
+Temalar:
+
+* Her biri farklı layout
+* Farklı renk şeması
+* Farklı typography
+* Farklı nav + footer
+* Premium görünüm
+* CSS içindeki tüm `@` ifadeleri Razor uyumlu escape edilmiş şekilde (`@@`)
+
+Her tema:
+
+```
+/Themes/ThemeX/css/theme.css
+/Themes/ThemeX/js/theme.js
+/Themes/ThemeX/layout.cshtml
+```
+
+Layout dosyalarındaki tüm CSS içindeki `@media`, `@keyframes` gibi ifadeler **@@media**, **@@keyframes** şeklinde uygulanacak.
+
+---
+
+# 📄 **6) Public Site Özellikleri**
+
+Public taraf:
+
+### Ana Sayfa
+
+* Slider
+* Featured ürünler
+* Firma açıklaması
+* Footer (tema uyumlu)
+
+### Ürün Detay
+
+* Çoklu resim carousel
+* SEO meta tags
+* Admin panelinden gelen içerik
+
+### Hakkımızda / Vizyon / Misyon
+
+* Admin panelinden yönetilir
+
+### İletişim
+
+* Maps embed
+* SMTP üzerinden mail gönderimi
+* Responsive form
+
+---
+
+# 📦 **7) Veri Tabanı**
+
+### Tablolar:
+
+* Users
+* Products
+* ProductImages
+* Slider
+* Pages
+* Settings
+* ContactSettings
+* Logs
+
+### Seed Data:
+
+* Admin (appsettings’ten)
+* Örnek slider
+* Örnek ürün
+* Örnek sayfa içerikleri
+* Varsayılan ayarlar
+
+---
+
+# 🧪 **8) Kod Stabilitesi ve Kalite Gereksinimleri**
+
+Kod kesinlikle:
+
+* Derlenebilir
+* Hatasız
+* Üretime hazır
+* SOLID uyumlu
+* Clean Code prensiplerine uygun
+* Gereksiz kod içermez
+* Yarım bırakılmış controller/view/model barındırmaz
+* Razor syntax hatası içermez (özellikle CSS içindeki `@`)
+* .NET 10 ile %100 uyumludur
+
+---
+
+# 🏁 **9) Çıktı Formatı**
+
+Console uygulaması çalışınca:
+
+```
+GeneratedSites/
+    ProjectName/
+        ProjectName.sln
+        Controllers/
+        Models/
+        Views/
+        Services/
+        Repositories/
+        Themes/
+        wwwroot/
+        appsettings.json
+        Migrations/
+        ProjectName.db
+```
+
+Proje direkt çalışır durumda olmalıdır.
+
+---
+
+# 🧨 **10) Son Talimat (Mutlak Zorunlu)**
+
+Aşağıdaki çıktıyı ÜRET:
+
+**Tamamen çalışan, hatasız derlenen, .NET 10 MVC yapısında oluşturulmuş, Razor `@` karakteri güvenlik kurallarına uygun, premium temalı, admin paneli + public site içeren, SQLite + migration + seed data destekli, tüm dosyaları otomatik oluşturan Website Generator Console Application.**
+
+Kodlar:
+
+* Eksiksiz olacak
+* Yarım kalmayacak
+* Tüm view’larda Razor `@` escape kuralları doğru uygulanacak
+* Tüm migration’lar eksiksiz olacak
+* Proje sıfır hata ile build edilecek
+* Razor Pages kullanılmayacak (sadece MVC)
+* .NET 10 zorunlu olacak
+
+**PROMPT BİTİYOR**
