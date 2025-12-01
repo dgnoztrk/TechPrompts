@@ -1,0 +1,344 @@
+````text
+Sen bir .NET 10 ve kripto trading konusunda uzman bir yazılım mimarısın.  
+Cursor ortamında çalıştığını, TEK SEFERDE tam çalışan bir çözüm üretmen gerektiğini unutma.  
+
+HEDEF:
+- BinanceTR üzerinde DOGE/TRY (BinanceTR sembol formatı: "DOGE_TRY") için SPOT GRID TRADING BOTU yazılacak.
+- .NET 10 (TargetFramework: net10.0) ile çalışan, production-quality bir console uygulaması olacak.
+- Grid sayısı varsayılan 12 olacak (GridCount = 12), ama appsettings.json’dan değiştirilebilir olacak.
+- Exchange entegrasyonu için sadece BinanceTR NuGet paketi kullanılacak:
+  - `dotnet add package BinanceTR --version 1.3.0`
+  - Namespace: `using BinanceTr;`
+  - Client: `var client = new BinanceTrClient(apiKey, secretKey);` gibi.
+
+ÇÖZÜM / SOLUTION YAPISI:
+- Solution adı: `DogeTryGridMaster`
+- Tek bir console proje: `DogeTryGridMaster.Bot`
+- Proje tipi: .NET 10 console (generic host kullan, background service tarzı çalışan bot).
+- Tüm dosyaları TEK CEVAPTA üret:
+  - DogeTryGridMaster.sln (içerik olarak göster, .sln formatı ile)
+  - DogeTryGridMaster.Bot.csproj
+  - Program.cs
+  - appsettings.json
+  - Domain (Entities, Enums, Value Objects) dosyaları
+  - Application servisleri (interface ve implementation)
+  - Infrastructure (BinanceTR client wrapper, repositories, logging)
+  - Config sınıfları (strong-typed options)
+  - İstersen minimal birkaç unit test dosyası (ör: DogeTryGridMaster.Bot.Tests projesi ile) ama öncelik botun kusursuz çalışması.
+
+KRİTİK GENEL KURALLAR:
+- Kesinlikle adım adım gitme, TEK seferde tam çalışan çözüm ver.
+- Sadece iskelet/veri modeli verme; gerçek, derlenebilir ve mantığı dolu kod yaz.
+- Kod içinde `// TODO` bırakma.
+- Örnek değerleri, exception handling’i, logging’i GERÇEK anlamda implemente et.
+- Tüm `using` direktiflerini eksiksiz ekle.
+- Hiçbir yerde API key veya secret hard-code etme.
+  - API key ve secret sadece `appsettings.json` içinden IConfiguration/IOptions ile alınacak.
+- Yarı yolda bırakılmış sınıf/Metod bırakma. Her şey tam olmalı.
+- Türkçe/İngilizce karışık olabilir ama kod isimlendirmesi genelde İngilizce olsun.
+
+MİMARİ KATMANLAR:
+
+1) Domain (Core) Katmanı
+   Aşağıdaki tipleri oluştur:
+
+   - Entity: `GridLevel`
+     - Özellikler:
+       - `int Id`
+       - `decimal GridPrice`
+       - `decimal BuyPrice`
+       - `decimal SellPrice`
+       - `decimal QuoteAmount` (bu grid’e ayrılan TRY miktarı)
+       - `decimal Quantity` (DOGE adedi)
+       - `GridLevelState State` (Idle, BuyOrderPlaced, BuyFilled, SellOrderPlaced, Completed)
+       - `long? BuyOrderId`
+       - `long? SellOrderId`
+       - `DateTime? LastUpdatedAt`
+     - Davranışlar (metod olabilir veya domain service’e bırakabilirsin).
+
+   - Entity: `TradeCycle`
+     - Bir grid seviyesindeki tamamlanmış al-sat döngüsünü temsil etsin.
+     - Özellikler:
+       - `int Id`
+       - `int GridLevelId`
+       - `string Symbol` (örn: "DOGE_TRY")
+       - `long BuyOrderId`
+       - `decimal BuyPrice`
+       - `decimal BuyQuantity`
+       - `decimal BuyFee`
+       - `DateTime BuyTime`
+       - `long SellOrderId`
+       - `decimal SellPrice`
+       - `decimal SellQuantity`
+       - `decimal SellFee`
+       - `DateTime SellTime`
+       - `decimal ProfitTry` (net kar)
+       - `decimal ProfitPercentage`
+
+   - Value Object: `AccountState`
+     - `decimal QuoteBalance` (TRY)
+     - `decimal BaseBalance` (DOGE)
+     - `decimal RealizedPnlTry`
+     - `decimal UnrealizedPnlTry` (istersen boş geçebilirsin, minimum olarak RealizedPnlTry yeterli ama alanı koy)
+
+   - Enums:
+     - `GridLevelState { Idle, BuyOrderPlaced, BuyFilled, SellOrderPlaced, Completed }`
+     - `OrderSide { Buy, Sell }`
+     - `OrderStatus { New, PartiallyFilled, Filled, Canceled, Rejected, Expired }`
+
+   - Domain Servisleri:
+     - `GridCalculator`:
+       - Girdi: `minPrice`, `maxPrice`, `gridCount`, `totalQuoteAmount`.
+       - Çıktı: `IReadOnlyList<GridLevel>` listesi.
+       - Mantık:
+         - [minPrice, maxPrice] aralığını `gridCount` eşit segmente böl.
+         - Her segment için bir `GridPrice` hesapla: `minPrice + i * step`.
+         - GridPrice etrafında buy/sell fiyatlarını ayarla:
+           - Örnek:
+             - `BuyPrice = GridPrice * (1 - 0.0015m)`  
+             - `SellPrice = GridPrice * (1 + 0.0015m)`
+         - `totalQuoteAmount`’ı tüm gridlere eşit dağıt (12 grid için her birine `totalQuoteAmount / gridCount`).
+         - `Quantity = QuoteAmount / BuyPrice` gibi hesapla.
+
+     - `PnlCalculator`:
+       - Alış ve satış verileri üzerinden TRY bazlı karı hesaplar:
+         - `GrossProfit = (SellPrice - BuyPrice) * Quantity`
+         - Fee dahil net karı hesaplar:
+           - `NetProfit = GrossProfit - (BuyFee + SellFee)`
+         - Yüzde:
+           - `ProfitPercentage = NetProfit / (BuyPrice * Quantity)`.
+
+2) Application Katmanı
+   Interface’ler:
+   - `IGridTradingService`
+     - Metodlar:
+       - `Task StartAsync(CancellationToken stoppingToken);`
+       - İçeride ana loop’u yöneten servis olacak (BackgroundService’in kullandığı bir servis veya direkt BackgroundService olabilir).
+
+   - `IExchangeService`
+     - BinanceTR kullanımını soyutlamak için:
+       - `Task<decimal> GetCurrentPriceAsync(string symbol, CancellationToken ct = default);`
+         - Bunu, `Public.GetOrderBookAsync("DOGE_TRY", limit: 5)` ile en iyi bid/ask’in ortalamasını alarak hesaplayabilirsin.
+       - `Task<AccountState> GetAccountStateAsync(CancellationToken ct = default);`
+         - `Private.GetAccountInformationAsync()` ve `GetTotalBalance("TRY")`, `GetTotalBalance("DOGE")` ile `QuoteBalance` ve `BaseBalance` üret.
+       - `Task<long> PlaceLimitOrderAsync(string symbol, OrderSide side, decimal quantity, decimal price, CancellationToken ct = default);`
+         - `Private.NewOrderAsync(symbol, sideEnum, OrderTypesEnum.LIMIT, quantity, price)`
+         - Dönen orderId değerini long olarak dön.
+       - `Task<OrderStatus> GetOrderStatusAsync(string symbol, long orderId, CancellationToken ct = default);`
+         - `Private.GetOrderDetailAsync(orderId)` sonucu üzerinden state map et.
+       - `Task CancelOrderAsync(string symbol, long orderId, CancellationToken ct = default);`
+         - `Private.CancelOrderAsync(orderId)`.
+
+   - `IGridRepository`
+     - GridLevel’ları saklamak için (ilk versiyon InMemory, istersen JSON file tabanlı storage da ekle):
+       - `Task<IReadOnlyList<GridLevel>> GetAllAsync();`
+       - `Task SaveAllAsync(IEnumerable<GridLevel> levels);`
+
+   - `ITradeCycleRepository`
+     - Tamamlanan trade cycle’ları saklamak için (yine InMemory + opsiyonel JSON storage):
+       - `Task AddAsync(TradeCycle cycle);`
+       - `Task<IReadOnlyList<TradeCycle>> GetAllAsync();`
+
+   Uygulama servisi:
+   - `GridTradingService : BackgroundService` (veya IHostedService)
+     - Constructor’da şunları al:
+       - `ILogger<GridTradingService>`
+       - `IExchangeService`
+       - `IGridRepository`
+       - `ITradeCycleRepository`
+       - `IOptions<ExchangeSettings>`
+       - `IOptions<GridSettings>`
+       - `IOptions<BotSettings>`
+     - `ExecuteAsync` içinde:
+       - Başlangıçta:
+         - Gridleri hesapla (`GridCalculator` ile).
+         - Repo’ya kaydet.
+         - Başlangıç account state logla.
+         - Grid özetini logla (12 grid seviyesinin fiyatlarını, miktarlarını).
+       - Sürekli döngü (while !stoppingToken.IsCancellationRequested):
+         - Şu adımları belirli bir interval ile yap:
+           1) Şu anki fiyatı al (`GetCurrentPriceAsync`).
+           2) Tüm gridLevel’ları dolaş:
+              - Eğer `State == Idle` ve fiyat `BuyPrice`’ın altına veya eşit seviyesine inmişse:
+                - Eğer grid için yeterli TRY yoksa (account state ile kıyaslama istersen sonra optimize edebilirsin), yine de basit versiyonda emir ver.
+                - BUY limit order aç.
+                - `State = BuyOrderPlaced`, `BuyOrderId` set et, logla.
+              - `State == BuyOrderPlaced` ise:
+                - Order status kontrol et:
+                  - `Filled` ise:
+                    - Buy fill fiyatını & fee’yi repository’de güncelle.
+                    - Hemen SELL limit order aç (`SellPrice`’tan).
+                    - `State = SellOrderPlaced`, `SellOrderId` set et.
+              - `State == SellOrderPlaced` ise:
+                - SELL emrini kontrol et:
+                  - `Filled` ise:
+                    - TradeCycle oluştur:
+                      - Buy/Sell bilgileriyle PnL hesapla (PnlCalculator).
+                      - `ITradeCycleRepository.AddAsync`.
+                    - `State = Completed` veya istersen yeniden cycle başlatmak için `Idle` yap ve buy’dan yeniden başlat.
+           3) Her döngü sonunda kısa bir özet log yaz:
+              - CurrentPrice, toplam realized PnL, kaç grid aktif vs.
+         - Döngü sleep süresi: `BotSettings.PollingIntervalSeconds` kadar `Task.Delay`.
+
+3) Infrastructure Katmanı
+
+   - `ExchangeSettings` sınıfı:
+     - `string BaseUrl` (örn: "https://api.binance.tr" veya boş bırakıp BinanceTrClient default’unu kullanabilirsin)
+     - `string ApiKey`
+     - `string ApiSecret`
+     - `string Symbol` (örn: "DOGE_TRY")
+
+   - `GridSettings` sınıfı:
+     - `decimal MinPrice`
+     - `decimal MaxPrice`
+     - `int GridCount` (default 12)
+     - `decimal TotalQuoteAmount`
+     - `decimal MakerFeeRate`
+     - `decimal TakerFeeRate`
+     - `bool IsPaperTrading` (true ise sadece simüle et, gerçek emir atma; false ise gerçek emir at)
+
+   - `BotSettings` sınıfı:
+     - `int PollingIntervalSeconds`
+     - `bool EnableImmediateBacktest` (şimdilik false gibi, ileride kullanılabilir)
+
+   - `BinanceTrExchangeService : IExchangeService`
+     - İçinde `BinanceTrClient` instance’ı tut.
+       - `using BinanceTr;`
+       - ctor’da `ExchangeSettings` üzerinden apiKey, secret al:
+         - `var client = new BinanceTrClient(exchangeSettings.ApiKey, exchangeSettings.ApiSecret);`
+     - Method implementasyonları:
+       - `GetCurrentPriceAsync`:
+         - `Public.GetOrderBookAsync(symbol, limit: 5)` çağır.
+         - En iyi bid/ask üzerinden mid-price: `(bestBid + bestAsk) / 2m` döndür.
+       - `GetAccountStateAsync`:
+         - `Private.GetAccountInformationAsync()`
+         - `QuoteBalance = account.GetTotalBalance("TRY");`
+         - `BaseBalance = account.GetTotalBalance("DOGE");`
+       - `PlaceLimitOrderAsync`:
+         - OrderSideEnum ve OrderTypesEnum.LIMIT kullan:
+           - side map’i: bizim OrderSide -> BinanceTR OrderSideEnum.
+         - Dönen order nesnesinden `OrderId` al ve dön.
+       - `GetOrderStatusAsync`:
+         - `Private.GetOrderDetailAsync(orderId)`
+         - `order.Status`’ı kendi `OrderStatus` enum’una map et.
+       - `CancelOrderAsync`:
+         - `Private.CancelOrderAsync(orderId)`.
+
+   - Repository implementasyonları:
+     - `InMemoryGridRepository : IGridRepository`
+       - Uygulama boyunca memory’de tut.
+       - Multi-threadConcurrent durumuna dikkat etmek istersen lock kullan veya thread-safe collection kullan.
+     - `InMemoryTradeCycleRepository : ITradeCycleRepository`
+       - Benzer şekilde memory.
+
+   - İstersen basit bir `JsonFileGridRepository` ve `JsonFileTradeCycleRepository` de ekleyebilirsin:
+     - `grid-levels.json` ve `trades.json` gibi dosyalara serialize/deserialize.
+
+4) Presentation / Program.cs
+
+   - `Host.CreateDefaultBuilder(args)` kullan.
+   - `ConfigureAppConfiguration` ile `appsettings.json` yükle.
+   - `ConfigureServices`:
+     - `services.Configure<ExchangeSettings>(Configuration.GetSection("ExchangeSettings"));`
+     - `services.Configure<GridSettings>(Configuration.GetSection("GridSettings"));`
+     - `services.Configure<BotSettings>(Configuration.GetSection("BotSettings"));`
+     - `services.AddSingleton<IExchangeService, BinanceTrExchangeService>();`
+     - `services.AddSingleton<IGridRepository, InMemoryGridRepository>();`
+     - `services.AddSingleton<ITradeCycleRepository, InMemoryTradeCycleRepository>();`
+     - `services.AddHostedService<GridTradingService>();`
+   - Logging:
+     - İstersen Serilog ekleyebilirsin, ama minimum olarak Microsoft.Extensions.Logging yeter.
+   - Uygulama başladığında console’a bir banner yaz:
+     - Örneğin:
+       - "DogeTryGridMaster - BinanceTR Spot Grid Bot"
+       - Symbol, GridCount, Min/Max Price, TotalQuote vb.
+
+APPCONFIG / appsettings.json
+
+Örnek bir `appsettings.json` içeriğini TAM OLARAK ver:
+
+```json
+{
+  "ExchangeSettings": {
+    "BaseUrl": "https://api.binance.tr",
+    "ApiKey": "BURAYA_API_KEY_GELECEK",
+    "ApiSecret": "BURAYA_SECRET_KEY_GELECEK",
+    "Symbol": "DOGE_TRY"
+  },
+  "GridSettings": {
+    "MinPrice": 2.0000,
+    "MaxPrice": 3.0000,
+    "GridCount": 12,
+    "TotalQuoteAmount": 1000.0,
+    "MakerFeeRate": 0.0004,
+    "TakerFeeRate": 0.0006,
+    "IsPaperTrading": true
+  },
+  "BotSettings": {
+    "PollingIntervalSeconds": 3,
+    "EnableImmediateBacktest": false
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning",
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  }
+}
+````
+
+NOT:
+
+* `ApiKey` ve `ApiSecret` alanlarına ben kendi değerlerimi koyacağım. Sen sadece config ve okuma kısmını yaz.
+* Eğer `IsPaperTrading = true` ise:
+
+  * BinanceTR’ye gerçek order atmadan simüle et:
+
+    * Emirleri internal memory’de tut.
+    * Fiyat eşiklerini aşınca fill etmiş gibi davran.
+  * Eğer `IsPaperTrading = false` ise:
+
+    * Gerçek BinanceTR emirlerini kullan (Private.NewOrderAsync, GetOrderDetailAsync, CancelOrderAsync).
+
+EXTRA:
+
+* Birkaç temel unit test ekleyebilirsin (xUnit ile):
+
+  * `GridCalculator` için:
+
+    * MinPrice=2, MaxPrice=3, GridCount=12 için step ve GridPrice dizisinin beklenen değerlere yakın olduğunu test et.
+  * `PnlCalculator` için:
+
+    * Basit bir alış/satış senaryosunda beklenen kar/zararı test et.
+* Ama testler opsiyonel; öncelik BOT’un tam ve çalışır mimariye sahip olması.
+
+ÇIKTI FORMATIN:
+
+* Lütfen bütün dosyaları TEK cevapta, ayrı ayrı code block’lar içinde ver:
+
+  * `DogeTryGridMaster.sln`
+  * `DogeTryGridMaster.Bot/DogeTryGridMaster.Bot.csproj`
+  * `DogeTryGridMaster.Bot/appsettings.json`
+  * `DogeTryGridMaster.Bot/Program.cs`
+  * `DogeTryGridMaster.Bot/Domain/...` (tüm entity/enum/value object’ler)
+  * `DogeTryGridMaster.Bot/Application/...`
+  * `DogeTryGridMaster.Bot/Infrastructure/...`
+  * (Varsa) `DogeTryGridMaster.Bot.Tests/...`
+
+ÖZET:
+
+* .NET 10 console app
+* Solution: DogeTryGridMaster
+* Proje: DogeTryGridMaster.Bot
+* NuGet:
+
+  * `dotnet add package BinanceTR --version 1.3.0`
+* Symbol: "DOGE_TRY"
+* Varsayılan GridCount: 12
+* Tüm mimariyi, domain mantığını, BinanceTR entegrasyonunu, konfigürasyonu ve ana loop’u eksiksiz şekilde implemente et.
+* Tek seferde tam, derlenebilir bir çözüm üret.
+
+```
+
+---
