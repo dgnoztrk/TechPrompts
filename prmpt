@@ -1,323 +1,536 @@
-Bu sürümde:
+You are a principal-level .NET 10 engineer. Build a production-grade Website Generator as a .NET 10 Console application. The generator produces a .NET 10 ASP.NET Core MVC monolithic corporate website. This is a template-driven scaffolder: every generated file must originate from a .txt template and be created by placeholder replacement.
 
-✔ Gereksinimler daha katı
-✔ Teknik sınırlamalar daha ayrıntılı
-✔ Proje çıktısı daha net
-✔ Razor `@` güvenlik kuralları daha üst seviyeye çıkarıldı
-✔ Generator mimarisi profesyonel enterprise mantığına çekildi
-✔ Build-time güvenlik kuralları eklendi
-✔ Kod standartları daha sıkı
-✔ Tema sistemi daha güçlü
+Non-negotiable Constraints
 
----
+.NET 10 for generator + generated project.
 
-# 🚀 **GELİŞTİRİLMİŞ “ULTRA PROFESSIONAL” PROMPT**
+Generated solution contains exactly one MVC project (no extra class libraries, no layered architecture).
 
-Aşağıdaki gereksinimlere **tam uyum sağlayan**, kuralları asla ihlal etmeyen, üretime hazır, ileri seviye bir **.NET 10 Website Generator Console Application** oluşturacaksın.
+DB is SQLite + EF Core.
 
-Bu sürüm, **enterprise-grade**, **clean architecture**, **tam otomasyon** ve **en sıkı Razor güvenlik kuralları** ile uyumlu olmalıdır.
+SQLite .db file must be inside the generated web project root.
 
----
+Localization:
 
-# 🧨 **0) Ultra Kritik Kurallar — Mutlak Uyum**
+Default language tr (Turkish), optional switch to en (English).
 
-Aşağıdaki maddeler **kesin ve tartışmasızdır**.
-Bu uygulama **bu kurallardan biri bile ihlal edilirse kabul edilmeyecek**.
+Language switcher in top-right.
 
-### 🚫 Razor Pages yok
+UI texts from JSON files:
 
-Sadece MVC.
-Hiçbir View içinde **`@page`**, **`@model` (top-level directive)** veya Razor Pages’e özgü başka bir directive yer almayacak.
+Langs/tr.json
 
-### ⚠ Razor @ karakteri güvenlik duvarı (GELİŞTİRİLMİŞ)
+Langs/en.json
 
-Razor Views içinde:
+Keys are strict identifiers: [A-Za-z0-9_]+ only (no spaces, no Turkish chars, no symbols).
 
-| Kullanım          | Doğru            | Yanlış          |
-| ----------------- | ---------------- | --------------- |
-| CSS `@media`      | `@@media`        | `@media`        |
-| CSS `@keyframes`  | `@@keyframes`    | `@keyframes`    |
-| CSS `@supports`   | `@@supports`     | `@supports`     |
-| JavaScript string | `"@@example"`    | `"@example"`    |
-| Mail adresi       | `test@@mail.com` | `test@mail.com` |
+Content is multilingual in the database:
 
-### 🔒 Escape edilmemesi gereken Razor fonksiyonları korunacak
+Products/blog/portfolio/pages/sliders must have translation tables keyed by LanguageCode (tr, en).
 
-* `@RenderBody()`
-* `@RenderSection()`
-* `@await Component.InvokeAsync()`
-* `@Html.Partial()`
-* Model binding ifadeleri (`@Model.Title`, `@foreach`, vb.)
+JSON language files are only for UI chrome (menus, labels, buttons, etc.), not for content.
 
-Bu ifadelerde **escape uygulanmayacak**.
+Admin:
 
-### 🚫 Razor-ları kırabilecek inline CSS yasak
+Single controller: ManagementController for all admin operations, including login.
 
-* Razor View içinde `<style>` blokları minimal tutulacak
-* Tüm ana CSS temalara taşınacak
-* Inline CSS varsa, özel Razor-safe format kullanılacak
+/manage route shows login if not authenticated.
 
----
+Admin pages use _AdminLayout.cshtml, public pages use _Layout.cshtml.
 
-# 🌐 **1) Framework & Platform Gereksinimleri (GELİŞTİRİLMİŞ)**
+Cookie auth, anti-forgery in forms.
 
-### ✔ .NET 10 (en güncel C# versiyonu)
+First run:
 
-### ✔ ASP.NET Core 10 MVC
+If no admin exists, seed default admin admin/admin (store hashed password, never plaintext).
 
-### ✔ EF Core 10 + SQLite
+Themes:
 
-### ✔ ImageSharp (thumbnail)
+Only CSS themes, at least 8 theme files in wwwroot/themes/.
 
-### ✔ Repository + Service Layer Pattern
+Default: light.css.
 
-### ✔ Cookie Authentication
+Theme selection persisted in DB, changeable in admin.
 
-### ✔ Bootstrap 5 + jQuery + FontAwesome
+Admin can save CustomCss and CustomJs in DB; layouts inject them.
 
-### ✔ Global Exception Middleware
+Template-first generation:
 
-### ✔ Structured Logging (Console + File)
+Generator stores templates in Templates/.
 
-### ✔ Full Dependency Injection
+Templates are .txt and later saved as real file extension.
 
----
+Images (demo assets) are copied as binary.
 
-# 💻 **2) Generator Console App — Üst Seviye Gereksinimler**
+Naming:
 
-Console uygulaması:
+User enters a company/site name in console.
 
-### ✔ Tüm soruları kullanıcıya sorar
+Generate SolutionName and ProjectName: ASCII-only, no spaces, no special chars, no Turkish chars.
 
-* Proje adı
-* Site adı
-* Varsayılan tema
-* Admin bilgileri
-* SMTP ayarları
-* Logo? (Var/Yok)
+Use a deterministic normalization algorithm (document it + implement it).
 
-### ✔ Üst seviye otomasyon:
+UI:
 
-* Tüm proje klasörlerini otomatik oluşturur
-* Tüm modülleri yazdırır
-* Temaları oluşturur
-* EF Migrations üretir
-* Migration’ı derler
-* `dotnet ef database update` çalıştırır
-* Çalışır durumda MVC projesi çıktısı verir
-
-### ✔ Intelligent File Writer
-
-Her dosyayı şu kurallar ile oluşturur:
-
-* Razor içinde CSS varsa → bütün `@` işaretleri analiz edilir ve otomatik escape edilir (`@@`)
-* Razor syntax check yapılır
-* Üretilen dosya UTF-8 with BOM olarak yazılır
-* Windows & Linux path uyumluluğu sağlanır
-* Tüm dosyalar tekrar üretilebilir (idempotent)
-
----
-
-# 🏗 **3) Proje Mimarisi (Gelişmiş Clean Architecture)**
-
-```
-/Core
-    /Entities
-    /Interfaces
-    /DTOs
-    /Enums
+Bootstrap + jQuery.
 
-/Infrastructure
-    /Data
-    /Repositories
-    /Migrations
-    /FileStorage
+Corporate design; clean HTML; responsive.
 
-/Application
-    /Services
-    /Validators
-    /MappingProfiles
+SEO:
 
-/Web
-    /Controllers
-    /Models (ViewModels)
-    /Views
-        /Shared
-        /Home
-        /Products
-        /Pages
-        /Admin
-    /Themes
-    /wwwroot
-    appsettings.json
-```
+robots.txt, sitemap.xml (initially static ok, but architecture must allow dynamic later).
 
----
+meta tags, OpenGraph basics, canonical.
 
-# 🛡 **4) Admin Paneli — Enterprise Level**
+Razor keyword collisions:
 
-Admin paneli:
+Avoid property/variable names conflicting with Razor keywords (e.g., page, model, etc.). Use safe names like SitePageEntity, PageVm, etc.
 
-### ✔ Cookie Authentication + claims
+Output Requirements (Strict)
 
-### ✔ Admin bilgileri appsettings.json’dan okunur
+You must output everything in phases. Each phase must end with a “Quality Gate Checklist” and “How to run” instructions. If you cannot fit all code in one response, you must still finish Phase 1 fully compile-ready, and then continue Phase 2, 3, 4 in the same answer (condensed but complete). Do not ask questions; make sensible defaults.
 
-### ✔ Admin giriş/çıkış loglanır
+Do not produce partial files. For each file you mention, you must output its full contents.
 
-### ✔ Dynamic Theme Switching
+Phase Structure
 
-### ✔ Yönetilebilir tüm modüller:
+Phase 0: Final architecture summary + design decisions (why).
 
-| Modül           | Özellikler                         |
-| --------------- | ---------------------------------- |
-| Slider          | add/edit/delete/sort, image upload |
-| Products        | variantless ürün yönetimi          |
-| ProductImages   | çoklu upload, thumbnail            |
-| Pages           | hakkımızda, vizyon, misyon         |
-| Settings        | site başlıkları, meta tags         |
-| ContactSettings | smtp, maps embed                   |
-| Custom CSS/JS   | Razor-safe textarea                |
-| Logo Upload     | otomatik optimize                  |
-| Logs            | admin activity viewer              |
+Phase 1: Generator skeleton + template engine + project scaffolding + minimal generated MVC that runs.
 
----
+Phase 2: EF Core models + DbContext + migrations strategy + DataSeed + authentication.
 
-# 🎨 **5) Premium Tema Sistemi “Advanced Level”**
+Phase 3: Public pages + admin CRUD pages + theme system + custom css/js + language switch.
 
-Toplam 5 Premium Tema:
+Phase 4: SEO assets + slugging + validations + polish + testability notes.
 
-1. Royal Dark Blue
-2. Elegant Gold & White
-3. Futuristic Neon
-4. Minimal Pure
-5. Modern Gradient Purple
+Phase 0 — Architecture & Decisions
 
-### Her tema içerir:
+Provide:
 
-```
-Themes/
-    ThemeX/
-        css/
-            theme.css   (Razor @ safe → @@media)
-        js/
-            theme.js
-        layout.cshtml  (tema yapısına göre değişen)
-        partials/
-            _Header.cshtml
-            _Footer.cshtml
-```
+High-level architecture diagram in text.
 
-### Tema Kuralları
+File/folder tree (Generator + Templates + Generated project).
 
-* Layout içindeki CSS → tüm `@` ifadeleri escaped
-* Razor Pages directive yok
-* Responsive & premium görünüm
-* Nav + Footer her temada özgün
-* Tema istediğinde değiştirilebilir
+Decisions with rationale:
 
----
+Translation table approach
 
-# 📄 **6) Public Site (Enhanced)**
+JSON UI text provider
 
-### ✔ SEO-ready meta tags
+Cookie auth strategy
 
-### ✔ Structured Data (JSON-LD)
+Seeding approach
 
-### ✔ Tamamen responsive
+Theme loading strategy
 
-### ✔ Performans optimizasyonlu
+Template mapping approach
 
-Sayfalar:
+Quality Gate for Phase 0:
 
-* Ana Sayfa → slider + ürün vitrin + kurumsal açıklama
-* Ürün Detay → çoklu resim + SEO meta
-* Hakkımızda / Vizyon / Misyon
-* İletişim → SMTP + Maps
+Every requirement mapped to a component/file.
 
----
+No extra projects/layers.
 
-# 📦 **7) Veri Tabanı (Genişletilmiş)**
+Phase 1 — Generator Skeleton + Template Engine + Minimal MVC Output
+1.1 Generator Project
 
-Tablolar:
+Create a .NET 10 Console project named WebsiteGenerator.
 
-* Users
-* Products
-* ProductImages
-* Slider
-* Pages
-* Settings
-* ContactSettings
-* Logs
-* ThemeSettings
+Generator responsibilities:
 
-### ✔ Full Seed Data
+Interactive CLI:
 
-✔ Admin
-✔ Varsayılan tema
-✔ 2 örnek ürün
-✔ 2 slider
-✔ Sayfa içerikleri
+Ask CompanyName
 
----
+Ask output directory
 
-# 🧪 **8) Kod Kalitesi Gereksinimleri (Gelişmiş)**
+Ask theme selection (from available theme templates)
 
-Kod kesinlikle:
+Ask “Seed demo data?” default Yes
 
-* **Derlenebilir**
-* **Sıfır Razor hatası**
-* **Sıfır NullReference riski**
-* **Disposable pattern uygulanmış**
-* **Async/await tam uyumlu**
-* **SOLID + DRY + YAGNI + KISS**
-* **Minimal dependecy leak**
-* **Tam test edilebilirlik**
+Ask “Include EN language?” default Yes (still keep tr base always)
 
-### Ayrıca:
+Create solution and MVC project using dotnet CLI:
 
-* Controller’lar 100 satırı aşmayacak
-* Service’ler tek sorumluluk prensibiyle yazılacak
-* View’larda inline C# minimum olacak
-* Model binder hata güvenliği aktif olacak
+dotnet new sln
 
----
+dotnet new mvc
 
-# 🏁 **9) Çıktı Formatı (Geliştirilmiş)**
+dotnet sln add
 
-Generator sonunda şu klasör yapısı oluşur:
+Apply templates:
 
-```
-GeneratedSites/
-    {ProjectName}/
-        {ProjectName}.sln
-        Core/
-        Infrastructure/
-        Application/
-        Web/
-            Controllers/
-            Views/
-            Themes/
-            wwwroot/
-        appsettings.json
-        Migrations/
-        {ProjectName}.db
-```
+Overwrite scaffolded files with templated versions.
 
-### ✔ Proje anında `dotnet run` ile çalışır
+Template engine:
 
----
+Replace placeholders: {{SolutionName}}, {{ProjectName}}, {{CompanyName}}, {{CompanyNameSafe}}, {{DefaultTheme}}, {{IncludeEnglish}}, {{SeedDemoData}}
 
-# 🧨 **10) Son Talimat — Ultra Strict Mode**
+Validate leftover tokens: fail if any {{...}} remains.
 
-Şimdi aşağıdaki çıktıyı ÜRET:
+File mapping:
 
-### **Tamamen çalışan, enterprise seviyede, sıfır hatalı derlenen, .NET 10 MVC Clean Architecture yapısıyla oluşturulmuş, Razor @ güvenlik duvarı uygulanmış, 5 premium tema destekli, admin paneli + public site içeren, SQLite + migration + seed data içeren, tüm dosyaları otomatik oluşturan Website Generator Console Application.**
+Templates/WebProject/... mirrors output tree.
 
-Gereksinimler:
+.txt becomes final extension (strip .txt).
 
-* Kod eksiksiz olacak
-* Tek bir View bile Razor @ hatasına izin vermeyecek
-* Migration’lar eksiksiz olacak
-* Admin paneli tam çalışacak
-* Tüm temalar render edilebilir olacak
-* Çıktı doğrudan derlenebilir olacak
+Copy binary assets from Templates/WebProject/wwwroot/assets/demo/* without text replacement.
+
+Name sanitizer:
+
+Turkish char to Latin mapping (ğ->g, ü->u, ş->s, ı->i, ö->o, ç->c)
+
+Strip other diacritics
+
+Remove non-alphanumeric
+
+PascalCase or “safe” style
+
+Ensure not empty; fallback Site
+
+Ensure starts with letter; if not, prefix Site
+
+Logging:
+
+Basic console logger with levels.
+
+You must output these generator files fully:
+
+WebsiteGenerator/Program.cs
+
+WebsiteGenerator/GeneratorOptions.cs
+
+WebsiteGenerator/Services/TemplateEngine.cs
+
+WebsiteGenerator/Services/ScaffoldService.cs
+
+WebsiteGenerator/Services/DotnetCli.cs
+
+WebsiteGenerator/Services/NameSanitizer.cs
+
+WebsiteGenerator/Services/FileSystem.cs
+
+WebsiteGenerator/WebsiteGenerator.csproj
+
+1.2 Minimal Generated MVC Project (must run)
+
+Phase 1 generated project must compile and run with:
+
+Home page showing company name and theme loaded.
+
+Language switcher changes UI labels using JSON provider (Phase 1 can include provider skeleton).
+
+SQLite configured (db file created) but full models may come Phase 2.
+
+You must output templates for critical minimal runtime:
+
+Templates/WebProject/{{ProjectName}}.csproj.txt
+
+Templates/WebProject/Program.cs.txt
+
+Templates/WebProject/appsettings.json.txt
+
+Templates/WebProject/Controllers/HomeController.cs.txt
+
+Templates/WebProject/Views/Home/Index.cshtml.txt
+
+Templates/WebProject/Views/Shared/_Layout.cshtml.txt
+
+Templates/WebProject/Views/_ViewImports.cshtml.txt
+
+Templates/WebProject/Views/_ViewStart.cshtml.txt
+
+Templates/WebProject/Langs/tr.json.txt
+
+Templates/WebProject/Langs/en.json.txt
+
+Templates/WebProject/wwwroot/themes/light.css.txt
+
+plus 7 more theme css templates (phase 1 can ship them even if phase 3 enhances)
+
+Templates/WebProject/wwwroot/robots.txt.txt
+
+Templates/WebProject/wwwroot/sitemap.xml.txt
+
+Also include a minimal TextProvider for JSON UI strings:
+
+Templates/WebProject/Services/TextProvider.cs.txt
+
+Templates/WebProject/Extensions/TextProviderExtensions.cs.txt
+
+Razor helper usage: @T["Navbar_Home"]
+
+Quality Gate for Phase 1:
+
+After generation:
+
+dotnet restore
+
+dotnet run
+works.
+
+Theme CSS loads.
+
+Language switcher changes navbar label.
+
+No leftover tokens.
+
+Phase 2 — EF Core + Authentication + Seeding
+
+Implement the full data model with translation tables.
+
+2.1 Entities (in generated MVC)
+
+Implement these entities (single project, e.g., Models/Entities/):
+
+SiteSetting (ThemeName, CustomCss, CustomJs, DefaultLanguage)
+
+AdminUser (Username, PasswordHash, PasswordSalt OR use PasswordHasher)
+
+Slider, SliderTranslation
+
+Product, ProductTranslation
+
+BlogPost, BlogPostTranslation
+
+PortfolioItem, PortfolioItemTranslation
+
+SitePage, SitePageTranslation
+
+Optional: MediaAsset table for future (but keep minimal)
+
+All translations have LanguageCode constrained to tr/en.
+
+2.2 DbContext
+
+AppDbContext with Fluent API:
+
+Unique constraints:
+
+AdminUser.Username unique
+
+SitePage.Slug unique
+
+Translation unique composite: (EntityId, LanguageCode)
+
+Cascade behavior appropriate.
+
+SQLite connection string to point to ./app.db (project root).
+
+Migrations:
+
+Choose one:
+
+(Preferred) ship migrations templates and instruct dotnet ef database update
+
+or EnsureCreated() for simplicity in early stage (but explain trade-offs).
+
+Pick one and implement consistently.
+
+2.3 DataSeed
+
+Runs on startup.
+
+If no admin exists:
+
+create default admin admin/admin (hashed)
+
+seed:
+
+2 sliders + translations
+
+3 products + translations + images
+
+2 blog posts + translations + images
+
+2 portfolios + translations + images
+
+site settings with selected theme
+
+Demo images are from wwwroot/assets/demo/ (must exist).
+
+2.4 Authentication
+
+Cookie Authentication with claims.
+
+Login in ManagementController:
+
+GET /manage -> login if not authenticated
+
+POST -> validate credentials, sign in
+
+logout endpoint
+
+Protect admin routes with [Authorize] or manual check.
+
+You must output templates for:
+
+Entities + DbContext + Seed + Auth config in Program.cs
+
+ManagementController skeleton (full in Phase 3 but login must work now)
+
+Quality Gate for Phase 2:
+
+Fresh DB created and seeded automatically.
+
+Login works with admin/admin.
+
+Admin area access requires auth.
+
+Phase 3 — Pages + CRUD + Theme + Custom CSS/JS + Multilingual DB Content
+3.1 Public Pages
+
+Implement controllers/views:
+
+Home (slider + featured products/blog/portfolio)
+
+Products list + detail (slug route)
+
+Blog list + detail
+
+Portfolio list + detail
+
+Contact page
+
+About/Mission/Vision as seeded SitePages with fixed slugs
+
+Dynamic pages: /p/{slug}
+
+All listing and detail views must query translations by current language (cookie) with fallback to tr if missing.
+
+3.2 Admin (ManagementController only)
+
+Within ManagementController, implement areas logically by action groups:
+
+Dashboard
+
+Products: list/create/edit/delete
+
+Blog: list/create/edit/delete
+
+Portfolio: list/create/edit/delete
+
+Sliders: list/create/edit/delete + sort order + active
+
+Pages: list/create/edit/delete + slug edit + content editor
+
+Site settings:
+
+Theme selection dropdown
+
+Custom CSS textarea
+
+Custom JS textarea
+
+Default language (still tr base)
+
+For each CRUD:
+
+handle translations in same form (tabs for TR/EN)
+
+image upload (basic) OR choose from demo for now; pick one approach and implement.
+
+Use Bootstrap admin theme layout (sidebar).
+
+Use anti-forgery tokens.
+
+Quality Gate for Phase 3:
+
+CRUD works end-to-end.
+
+Multilingual entries saved and shown correctly.
+
+Theme switching immediately affects public layout.
+
+Phase 4 — SEO, Slugging, Validation, Robustness
+4.1 Slug Service
+
+Slugify method:
+
+Turkish normalization
+
+lowercase
+
+hyphen
+
+uniqueness for products/blog/portfolio/pages (append -2 etc.)
+
+Routes:
+
+/products/{slug}
+
+/blog/{slug}
+
+/portfolio/{slug}
+
+/p/{slug}
+
+4.2 SEO
+
+robots.txt and sitemap.xml included.
+
+Add canonical and OpenGraph in layout.
+
+Add basic structured data placeholder (JSON-LD) optional.
+
+4.3 Validation & Security
+
+Server-side validation (DataAnnotations).
+
+Prevent XSS in stored HTML where applicable:
+
+Either store plain text + render encoded OR allow HTML with explicit note.
+
+Choose a safe default: render encoded; allow limited HTML later.
+
+Add CSP note for custom JS.
+
+Quality Gate for Phase 4:
+
+No broken links.
+
+Slugs unique.
+
+Layout meta tags exist.
+
+Admin forms protected.
+
+Final Output Format
+
+You must output:
+
+The full folder tree for generator and templates.
+
+Then file-by-file content blocks. Each block must start with:
+// File: <relative path>
+
+Provide exactly one cohesive solution. No pseudocode. No “TODO later”.
+
+Ensure compilation.
+
+Now implement Phase 0 to Phase 4 in one response, ensuring Phase 1 and Phase 2 are definitely compile-ready. If length is a problem, compress Phase 3/4 views but they still must be complete and compilable.
+
+Ek İyileştirmeler (You must include)
+
+A README.md template that documents:
+
+generator usage
+
+how to run the generated site
+
+how to add new themes
+
+how to add new UI keys to JSON
+
+A “Template Manifest” in generator:
+
+list of templates and destination mapping
+
+generator validates missing templates on startup
+
+A “Post-generation verification” step:
+
+generator scans output for {{ leftovers and fails if found
+
+Deliver everything now.
