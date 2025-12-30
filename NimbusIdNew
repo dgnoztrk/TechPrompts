@@ -1,0 +1,432 @@
+YOU ARE WORKING ON A CRITICAL, ENTERPRISE-GRADE IDENTITY PLATFORM.
+
+PROJECT NAME:
+NimbusID
+
+THIS IS A MASTER INSTRUCTION THAT GOVERNS ALL SUBSEQUENT PROMPTS (1–9).
+DO NOT IGNORE, SIMPLIFY, OR PARTIALLY IMPLEMENT ANY REQUIREMENT.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GLOBAL NON-NEGOTIABLE RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1) ARCHITECTURE
+- Use Clean Architecture STRICTLY.
+- Allowed layers ONLY:
+  - Domain
+  - Application
+  - Infrastructure
+  - Presentation
+- NO additional layers.
+- NO gateways, facades, adapters unless absolutely required by Clean Architecture.
+- MVC and Web API projects are Presentation ONLY.
+- Business rules NEVER live in Presentation.
+
+2) HOSTING MODEL
+- Two presentation projects ONLY:
+  - NimbusID.Mvc   → ASP.NET Core MVC (Admin UI + Account UI)
+  - NimbusID.WebApi → ASP.NET Core Web API (OIDC, SAML, SCIM, Admin API)
+- No BFF, no proxy, no gateway.
+
+3) MULTI-TENANCY
+- Realm-based (Keycloak-style).
+- RealmId column everywhere.
+- NO schema-per-tenant.
+- Realm configuration drives runtime behavior dynamically.
+
+4) SECURITY FIRST
+- Follow OWASP ASVS mindset.
+- No insecure crypto.
+- No secret ever logged.
+- Default settings must be secure.
+- Every auth/admin action must be auditable.
+
+5) COMPLETENESS
+- This is NOT a demo.
+- This is NOT a PoC.
+- This is a production-capable system.
+- Every feature must work end-to-end.
+- UI + API + persistence + validation must all exist.
+
+6) PARITY GOAL
+- Feature parity with Keycloak at capability level:
+  - OIDC/OAuth2 (.well-known, JWKS, PKCE, refresh rotation)
+  - Admin console
+  - Realm / User / Client / Role / Group management
+  - Sessions
+  - Key rotation
+  - Themes
+  - SAML 2.0
+  - SCIM 2.0
+  - LDAP federation
+- Implementation must be original.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CODE QUALITY RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Explicit code > magic.
+- Prefer clarity over cleverness.
+- Avoid over-engineering.
+- One use-case = one Application command/query.
+- Domain entities must protect invariants.
+- Infrastructure implements interfaces only.
+- No circular dependencies.
+- No anemic domain model.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UI RULES (MVC)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- MVC uses Razor Pages or Controllers + Views.
+- Bootstrap 5 + jQuery ONLY.
+- No SPA frameworks.
+- Admin UI must be usable by non-developers.
+- Validation errors must be user-friendly.
+- Theme system must affect MVC UI.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+API RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- RESTful.
+- Clear routes.
+- Proper HTTP status codes.
+- ProblemDetails for errors.
+- Realm-aware routing.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TESTING & VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Unit tests for domain rules.
+- Integration tests using PostgreSQL (Testcontainers if possible).
+- OIDC happy path MUST be tested.
+- Admin CRUD MUST be tested.
+- If something is not testable, explain WHY in docs.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOCUMENTATION (MANDATORY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The following documents MUST exist and be accurate:
+- docs/Architecture.md
+- docs/Security.md
+- docs/OIDC.md
+- docs/AdminConsole.md
+- docs/Deployment.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WORKFLOW CONTROL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You will now receive PROMPT 1 through PROMPT 9.
+Each prompt:
+- Extends the existing codebase.
+- Must NOT rewrite previous steps.
+- Must NOT remove features.
+- Must NOT introduce architectural violations.
+
+AFTER PROMPT 9:
+You MUST produce:
+1) A final ACCEPTANCE CHECKLIST (Markdown).
+2) A feature-parity table vs Keycloak.
+3) A known-limitations section (if any).
+4) Confirmation that the system can run locally end-to-end.
+
+FAILURE CONDITIONS (DO NOT DO THESE):
+- Skipping Admin UI
+- Skipping .well-known
+- Returning pseudo-code
+- Saying “left as an exercise”
+- Introducing unnecessary layers
+- Replacing Clean Architecture with shortcuts
+
+YOU ARE BUILDING A REAL PRODUCT.
+PROCEED WITH PROMPT 1 WHEN READY.
+
+GLOBAL ARCHITECTURE RULES (NON-NEGOTIABLE):
+
+- Use Clean Architecture strictly.
+- Allowed layers ONLY:
+  - Domain
+  - Application
+  - Infrastructure
+  - Presentation
+
+- No extra layers, no gateways, no abstractions for abstraction’s sake.
+- MVC and Web API projects are Presentation layer ONLY.
+- Domain:
+  - Entities
+  - Value Objects
+  - Domain Enums
+  - Domain Events (lightweight)
+- Application:
+  - Use Cases (Commands / Queries)
+  - Interfaces (repositories, crypto, time, email, token services)
+  - DTOs
+  - Validators
+- Infrastructure:
+  - EF Core (PostgreSQL)
+  - Crypto implementations
+  - Token/JWT/OIDC/SAML/SCIM implementations
+  - External integrations (SMTP, LDAP)
+- Presentation:
+  - ASP.NET Core MVC (Admin + Account UI)
+  - ASP.NET Core Web API (OIDC, SAML, SCIM, Admin API)
+  - NO business logic here
+
+- Prefer simplicity over patterns.
+- If a class does not clearly belong to a layer, it should NOT exist.
+
+Build a new solution named "NimbusID".
+
+TECH:
+- .NET 10
+- ASP.NET Core MVC + ASP.NET Core Web API
+- PostgreSQL
+- EF Core
+- Clean Architecture ONLY (no extra layers)
+
+PROJECTS:
+/src
+  /NimbusID.Domain
+  /NimbusID.Application
+  /NimbusID.Infrastructure
+  /NimbusID.WebApi        (Presentation)
+  /NimbusID.Mvc           (Presentation)
+/tests
+  /NimbusID.UnitTests
+  /NimbusID.IntegrationTests
+/docs
+
+DOMAIN (implement fully):
+- Realm
+- User
+- Credential
+- Role
+- Group
+- Client
+- Scope
+- IdentityProvider
+- Session
+- RefreshTokenFamily
+- KeyMaterial
+- AuditEvent
+- ThemePackage
+
+Rules:
+- All multi-tenancy via RealmId column (no schema-per-tenant).
+- Use jsonb for extensible attributes.
+- Add CreatedAtUtc / UpdatedAtUtc everywhere.
+
+INFRASTRUCTURE:
+- EF Core DbContext
+- PostgreSQL mappings
+- Proper indexes (unique username/email per realm, sessions, audit)
+- Initial migration
+
+SEED:
+- Realm: master
+- Admin user: admin@master.local
+- Roles: realm-admin, user-admin, client-admin
+- Demo OIDC client
+
+OUTPUT:
+- dotnet build must succeed
+- dotnet ef database update must work
+- Document architecture in docs/Architecture.md
+
+Continue existing solution. Do NOT add new projects.
+
+GOAL:
+Implement core identity features using Clean Architecture.
+
+DOMAIN:
+- PasswordPolicy (Value Object)
+- CredentialType enum
+- Domain rules for lockout and password expiration
+
+APPLICATION:
+- RegisterUserCommand
+- LoginCommand
+- VerifyEmailCommand
+- ForgotPasswordCommand
+- ResetPasswordCommand
+- ChangePasswordCommand
+
+INTERFACES (Application):
+- IUserRepository
+- IPasswordHasher
+- IPasswordPolicyEvaluator
+- IFieldEncryptionService
+- IEmailSender
+- ITimeProvider
+
+INFRASTRUCTURE:
+- Argon2id password hashing (default)
+- BCrypt alternative (realm configurable)
+- AES-256-GCM encryption-at-rest
+- SMTP email sender
+- EF Core repositories
+
+PRESENTATION:
+- WebApi endpoints under /api/account/*
+- MVC pages:
+  - /account/login
+  - /account/register
+  - /account/forgot-password
+  - /account/reset-password
+
+SECURITY:
+- CSRF
+- Rate limiting on login
+- Brute-force lockout
+
+AUDIT:
+- Persist audit events for login/register/reset
+
+TESTS:
+- Password policy unit tests
+- Register → verify → login integration test
+
+NO OIDC YET.
+
+Continue solution.
+
+GOAL:
+Implement OIDC/OAuth2 core WITHOUT external frameworks.
+
+FEATURES:
+- Authorization Code + PKCE
+- Refresh token rotation
+- Discovery (.well-known)
+- JWKS
+- UserInfo
+- Introspection
+- Revocation
+
+DOMAIN:
+- AuthorizationCode (entity)
+- TokenSettings (Value Object)
+
+APPLICATION:
+- AuthorizeQuery
+- ExchangeTokenCommand
+- RefreshTokenCommand
+- IntrospectTokenQuery
+
+INFRASTRUCTURE:
+- JWT signing (RS256)
+- KeyMaterial management
+- JWKS projection
+- Secure auth code storage
+
+PRESENTATION (WebApi):
+- /realms/{realm}/.well-known/openid-configuration
+- /realms/{realm}/connect/authorize
+- /realms/{realm}/connect/token
+- /realms/{realm}/jwks
+- /realms/{realm}/connect/userinfo
+
+INTEGRATION:
+- MVC login page used as hosted login
+
+TESTS:
+- Full OIDC code flow
+- Refresh reuse detection
+
+NO ADMIN UI YET.
+
+Continue solution.
+
+GOAL:
+Build full Admin Console using Clean Architecture.
+
+ADMIN API (WebApi):
+- /admin/realms
+- /admin/users
+- /admin/roles
+- /admin/groups
+- /admin/clients
+- /admin/sessions
+- /admin/keys
+- /admin/audit
+- /admin/themes
+
+APPLICATION:
+- One command/query per use case
+- Authorization via role checks in Application
+
+MVC (Admin UI):
+- Razor Pages
+- Bootstrap 5 + jQuery
+- Realm switcher
+- Full CRUD screens
+
+SECURITY:
+- Admin login via NimbusID OIDC
+- realm-admin role required
+
+AUDIT:
+- All admin actions logged
+
+NO extra service layers.
+
+Implement SAML 2.0 IdP support.
+
+FEATURES:
+- Metadata endpoint
+- SP-initiated login
+- Assertion signing
+- Attribute mapping
+
+CLEAN RULE:
+- SAML logic in Infrastructure
+- Configuration via Domain + Application
+- Endpoints in WebApi only
+
+Admin config via existing Admin UI.
+
+
+Implement SCIM 2.0 provisioning.
+
+FEATURES:
+- Users
+- Groups
+- Filtering & paging
+- Bearer provisioning tokens
+
+NO extra abstractions.
+
+Implement LDAP federation.
+
+FEATURES:
+- Authenticate via LDAP bind
+- Optional user sync job
+- Attribute mapping
+
+Quartz job allowed (Infrastructure only).
+
+Implement theme system for MVC pages.
+
+FEATURES:
+- Theme zip upload
+- Razor view override
+- CSS/JS override
+- Per-realm activation
+
+Keep it simple and safe.
+
+Finalize product.
+
+FEATURES:
+- Security headers
+- Global exception handling
+- Health checks
+- Observability
+- Acceptance checklist
+
+NO refactors, only stabilization.
+
+
