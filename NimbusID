@@ -1,0 +1,233 @@
+You are a senior staff-level architect + full-stack engineer. Build a production-grade Identity & Access Management platform similar in capabilities to Keycloak, but original and named "NimbusID". Use .NET 10 (ASP.NET Core), PostgreSQL, and follow Clean Architecture + DDD where it makes sense. The output must be a working monorepo with multiple projects, complete CI-ready code, migrations, docs, and an Admin UI. No placeholders; every feature must be implemented end-to-end with a clear acceptance checklist and tests.
+
+LANGUAGE:
+- Code in English.
+- UI language: Turkish + English (i18n).
+- Logs and admin messages: Turkish is allowed but keep technical logs in English.
+
+NON-NEGOTIABLES:
+- Security-first implementation (OWASP ASVS aligned).
+- Multi-tenant from day 1 (realm concept).
+- Support both "hosted login" (NimbusID UI) and "bring your own UI" (OAuth/OIDC flows).
+- Must support: OIDC/OAuth2, SAML 2.0, SCIM 2.0, LDAP/AD federation, MFA, theming, admin console, audit logs, sessions, tokens, key rotation, and fine-grained authorization (RBAC + ABAC).
+- Use PostgreSQL as primary store. No external dependencies required to run locally besides Postgres. (Optional integrations can be feature-flagged.)
+- Use EF Core 10, migrations, and deterministic schema.
+- Provide docker-compose for Postgres + app (but app must also run without Docker).
+
+REPO STRUCTURE (Monorepo):
+/src
+  /NimbusID.Gateway (optional reverse-proxy module OR keep simple as single host)
+  /NimbusID.IdentityServer (ASP.NET Core Web - OIDC/OAuth2/SAML endpoints)
+  /NimbusID.AdminApi (ASP.NET Core Web API for admin console)
+  /NimbusID.AdminUi (Web UI - choose: ASP.NET Core Razor Pages + Bootstrap 5 + jQuery OR Blazor Server; must be polished)
+  /NimbusID.AccountUi (Hosted login/register/forgot-password UI with theming)
+  /NimbusID.Scim (SCIM endpoints or integrated into IdentityServer)
+  /NimbusID.Background (Hangfire or Quartz for cleanup jobs; prefer Quartz if no commercial)
+  /NimbusID.Shared (shared contracts, primitives)
+  /NimbusID.Domain
+  /NimbusID.Application
+  /NimbusID.Infrastructure
+/tests
+  /NimbusID.UnitTests
+  /NimbusID.IntegrationTests
+/docs
+  Architecture.md
+  Security.md
+  OIDC.md
+  SAML.md
+  SCIM.md
+  Theming.md
+  AdminConsole.md
+  Deployment.md
+
+TECH STACK REQUIREMENTS:
+- .NET 10, C# 13 (if available in SDK), ASP.NET Core.
+- EF Core + Npgsql, migrations.
+- Authentication protocols:
+  - OIDC/OAuth2: implement Authorization Code + PKCE, Client Credentials, Device Code, Refresh Token, Token Introspection, Revocation, UserInfo, JWKS, Discovery Document.
+  - SAML 2.0: SP-initiated and IdP-initiated SSO, metadata generation, signing/encryption, assertion consumer service, single logout.
+  - SCIM 2.0: Users and Groups endpoints, filtering, pagination, provisioning.
+- Cryptography:
+  - Password hashing: Argon2id (preferred) + BCrypt (configurable per realm). Provide migration strategy.
+  - Key management: signing keys (RSA/ECDSA) with rotation, JWKS publication, per-realm keys.
+  - Encryption-at-rest for sensitive fields (e.g., client secrets, OTP secrets): AES-256-GCM using envelope encryption with master key + derived keys.
+  - Data Protection: ASP.NET Core DataProtection with key persistence in Postgres.
+- Session management:
+  - Cookie sessions for hosted UI (secure, SameSite, CSRF protections).
+  - Token sessions for APIs.
+  - Admin session view + revoke sessions.
+- Email/SMS:
+  - Implement email verification, password reset, magic link (optional), and SMS OTP as pluggable providers with a default "SMTP" provider for email (config via appsettings).
+- Theming:
+  - Per-realm theme selection. Support uploading theme packages (zip) containing templates, css, js, images.
+  - Theme engine: Razor-based templating or strongly typed views with override capability.
+  - Admin console must allow previewing themes.
+- Admin console:
+  - Realms (tenants) management.
+  - Users CRUD, credentials, disable/enable, lock/unlock, required actions.
+  - Groups, Roles, Permissions, Policies.
+  - Clients (OIDC) CRUD: redirect URIs, CORS, secrets, grant types, token settings, mappers/claims.
+  - Identity providers (federation): OIDC external IdP, SAML external IdP, LDAP federation.
+  - Authentication flows: configurable flow builder (at least: username/password, OTP, WebAuthn optional).
+  - Events/Audit logs viewer with filters.
+  - Sessions viewer.
+  - Keys (rotate/activate/deactivate).
+  - Brute-force protection settings.
+- Authorization model:
+  - Realm roles, client roles, composite roles.
+  - RBAC enforcement in AdminApi.
+  - ABAC policies (attribute-based) for protected resources (simple policy language: JSON rules or CEL-like minimal).
+- Token customization:
+  - Claims mappers: user attributes -> token claims; group/role -> claim mapping; static claims; script-based mapper OPTIONAL (must be sandboxed if implemented; otherwise exclude with clear doc).
+- Internationalization:
+  - i18n resources for hosted pages and admin.
+- Observability:
+  - Structured logging (Serilog optional but if you add, keep minimal). Provide correlation IDs, request logging.
+  - Metrics: OpenTelemetry metrics + traces with console exporter by default.
+- Security hardening:
+  - CSRF, XSS protections, content security policy for hosted pages.
+  - Rate limiting (AspNetCore RateLimiting) per realm/IP.
+  - Brute-force detection and lockout policies.
+  - Secure defaults: HTTPS recommended; HSTS in prod.
+- Performance:
+  - Use compiled queries where appropriate, indexes in migrations, caching of discovery/JWKS per realm.
+  - Avoid reflection-heavy paths.
+
+DOMAIN MODEL (must exist):
+- Realm: id, name, slug, settings (password policy, token policy, themes, smtp, brute-force, mfa policy).
+- User: id, realmId, username, email, phone, status, attributes (jsonb), created/updated, lockout, lastLogin.
+- Credential: userId, type (password, otp, weauthn), secret (encrypted), metadata.
+- Role: realm role and client role separation, composites.
+- Group: hierarchy, membership.
+- Client: OIDC client config incl. redirectUris, secrets (hashed/encrypted), scopes, consent.
+- Scope: realm scopes + client scopes.
+- IdentityProvider: external IdPs with protocol settings.
+- AuditEvent: append-only.
+- Session: user sessions, token family, refresh token tracking.
+- KeyMaterial: realm signing/encryption keys with rotation and status.
+
+DATABASE (Postgres):
+- Use schemas or realmId partitioning strategy. Choose one and justify in Architecture.md.
+- Use jsonb for extensible attributes.
+- Add indexes for critical queries (login, user lookup, sessions, audit).
+- Implement outbox/inbox pattern for reliable events (optional but preferred).
+
+API SURFACES:
+1) Public endpoints (NimbusID.IdentityServer):
+- /.well-known/openid-configuration (per realm and default)
+- /connect/authorize
+- /connect/token
+- /connect/userinfo
+- /connect/introspect
+- /connect/revocation
+- /jwks
+- /logout
+- /account/* (hosted pages)
+- /saml/* endpoints (metadata, ACS, SLO)
+- /scim/v2/* (if integrated here)
+
+2) Admin API (NimbusID.AdminApi):
+- /admin/realms
+- /admin/realms/{realmId}/users
+- /admin/realms/{realmId}/clients
+- /admin/realms/{realmId}/roles
+- /admin/realms/{realmId}/groups
+- /admin/realms/{realmId}/idps
+- /admin/realms/{realmId}/themes
+- /admin/realms/{realmId}/events
+- /admin/realms/{realmId}/sessions
+- /admin/realms/{realmId}/keys
+- All endpoints must be protected and require admin roles.
+
+ADMIN UI:
+- Must be fully usable: list pages, details, create/edit forms, validation, search, pagination.
+- Use Bootstrap 5 + jQuery if Razor Pages; keep JS in jQuery per page module.
+- Provide a clean layout, sidebar navigation, realm switcher, user search.
+- Implement authentication to the Admin UI via NimbusID OIDC (self-host) with separate admin realm or admin client.
+
+HOSTED ACCOUNT UI:
+- Pages: Login, Register, Email verification, Forgot password, Reset password, MFA enrollment, Consent screen, Error pages.
+- Themeable: templates + CSS + assets per realm.
+
+AUTHENTICATION FLOWS:
+- Provide a basic "Flow engine":
+  - Define steps: Identify user, Password, OTP, Consent, Terms.
+  - Realm admin can configure: required steps and order.
+  - Store flow definitions in DB.
+  - Implement at least 2 flow presets: "Standard" and "MFA required".
+
+PASSWORD POLICY (per realm):
+- Min length, complexity, history, expiration, breach check (optional, local-only), lockout thresholds.
+- Provide UI to configure and enforce at registration/change password.
+
+CLIENT CONFIG OPTIONS (like Keycloak):
+- Allowed grant types, redirect URIs, post logout redirect URIs.
+- PKCE required toggle.
+- Access token lifespan, refresh token rotation and reuse detection.
+- Consent required, scopes.
+- CORS allowed origins.
+- Backchannel logout support (OIDC logout).
+- SAML settings for SAML clients (if acting as IdP to SPs).
+
+FEDERATION:
+- LDAP/AD:
+  - Implement user sync: periodic import, on-demand lookup.
+  - Map LDAP attributes to Nimbus attributes.
+  - Password validation against LDAP (bind) when configured.
+- External IdP:
+  - OIDC external provider: discovery, client id/secret, mapping.
+  - SAML external provider: metadata import, mapping.
+
+SCIM:
+- Implement SCIM Users/Groups with bearer token auth and per-client provisioning tokens.
+- Support filter: userName, email, externalId; pagination.
+
+AUDIT & EVENTS:
+- Record: login success/failure, admin actions, user updates, client updates, key rotation, MFA changes.
+- Provide immutable storage (append-only table) + query APIs.
+
+TESTING:
+- Unit tests for domain policies (password policy, lockout, token settings).
+- Integration tests using Testcontainers for Postgres:
+  - OIDC authorization code + PKCE flow.
+  - Token refresh rotation and reuse detection.
+  - Admin CRUD for user/client.
+  - Theming upload and usage.
+- Minimal load test script (optional) and performance notes.
+
+DELIVERABLES:
+- Complete solution builds with `dotnet build`.
+- `dotnet ef database update` works and seeds:
+  - Default realm: "master"
+  - Admin user: admin@master.local with a bootstrap password printed once on first run (then must change)
+  - Sample client: "demo-app" configured for localhost redirect.
+- Provide `docs/` with detailed setup and architecture.
+- Provide a "Security.md" describing cryptography choices, key rotation, data protection, and threat model.
+- Provide a "Migration.md" for password hashing algorithm change.
+
+IMPLEMENTATION GUIDELINES:
+- Prefer minimal external libraries; but for SAML/SCIM you may use reputable OSS libraries if necessary. If using a library, justify it and wrap it behind interfaces.
+- Do not implement insecure crypto primitives yourself. Use .NET built-in cryptography and vetted libraries.
+- All secrets must be stored encrypted-at-rest and never logged.
+- Use feature flags for optional modules.
+
+ACCEPTANCE CHECKLIST (must be included in final output as a markdown checklist):
+- [ ] Can create realm, set theme, configure password policy.
+- [ ] Can register user with email verification.
+- [ ] Can login via hosted UI with CSRF protections and rate limiting.
+- [ ] OIDC discovery + JWKS works per realm.
+- [ ] Auth Code + PKCE works with demo client.
+- [ ] Refresh tokens rotate and reuse detection revokes sessions.
+- [ ] Admin can create client, set redirect URIs, and revoke tokens.
+- [ ] SAML metadata + SSO works with a sample SP config.
+- [ ] SCIM provisioning creates/updates users.
+- [ ] LDAP federation works with sample config (documented).
+- [ ] Keys rotate and old keys remain for validation until retired.
+- [ ] Audit log records critical events.
+- [ ] Integration tests pass locally.
+
+NOW EXECUTE:
+1) Create the solution and projects, implement all features above.
+2) Produce all code, migrations, docs, and tests.
+3) Ensure everything runs locally with a single command sequence in Deployment.md.
+4) Provide seeded demo flow and screenshots placeholders described in docs.
