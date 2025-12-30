@@ -6,6 +6,17 @@ NimbusID
 THIS IS A MASTER INSTRUCTION THAT GOVERNS ALL SUBSEQUENT PROMPTS (1–9).
 DO NOT IGNORE, SIMPLIFY, OR PARTIALLY IMPLEMENT ANY REQUIREMENT.
 
+Before continuing:
+
+- Verify that ALL existing projects target net10.*
+- Ensure solution builds using ONLY .NET 10 SDK.
+
+Confirm explicitly in your output that:
+- TargetFramework is net10.0 everywhere.
+- global.json is present.
+- dotnet --info shows .NET 10 SDK being used.
+
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 GLOBAL NON-NEGOTIABLE RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
