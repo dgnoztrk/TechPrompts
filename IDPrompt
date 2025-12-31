@@ -1,0 +1,397 @@
+You are a senior .NET Identity Platform architect with a strong production mindset.  
+Your goal is to design and implement a **Keycloak-equivalent Identity and Access Management (IAM) platform**, excluding LDAP, using **.NET Core 10**.
+
+This is for **personal development**, but the solution must be **production-ready**, not a demo or proof of concept.
+
+────────────────────────────────────────
+0) NON-NEGOTIABLE RULES
+────────────────────────────────────────
+
+1. **NO LDAP – ABSOLUTELY FORBIDDEN**
+   - No LDAP, Active Directory, directory federation, LDAP sync, LDAP mappers, or similar concepts.
+2. All remaining features must be **functionally equivalent to Keycloak**:
+   - Realms, Clients, Users, Roles, Groups, Scopes
+   - Tokens, Sessions, MFA, Events/Audit
+   - Admin Console, Account Console
+   - Themes/Branding, Email, Policies, Authentication Flows
+3. Framework:
+   - **.NET Core 10**
+   - `TargetFramework: net10.0`
+4. NuGet packages:
+   - **Always latest versions**
+   - Use wildcard (`Version="*"`) if necessary and resolve conflicts yourself.
+5. Database:
+   - **PostgreSQL**
+6. Date & Time handling:
+   - **ONLY `DateTime.Now`**
+   - `DateTime.UtcNow` is strictly forbidden.
+   - All timestamps (`CreatedAt`, `UpdatedAt`, `LastLoginAt`, `SessionStartedAt`, `TokenIssuedAt`, `TokenExpiresAt`, etc.) must use `DateTime.Now`.
+7. Architecture:
+   - **Clean Architecture**, but **no unnecessary layers**
+   - Shared components are allowed.
+8. Solution outputs:
+   - **Web API** → Identity Server + Admin API
+   - **MVC Application** → Admin Console UI + Account Console UI
+9. **NO CQRS, NO MediatR**
+   - Use classic **Application Services / Transaction Script** style:
+     - e.g. `UserService`, `ClientService`, `RealmService`
+   - Keep logic explicit, readable, and testable.
+
+────────────────────────────────────────
+1) MVC UI – STRICT RULES
+────────────────────────────────────────
+
+1. **JavaScript: jQuery ONLY**
+   - No React, Vue, Angular.
+   - Minimal vanilla JS allowed, but all AJAX and UI logic must be jQuery-based.
+   - Use `$.ajax`, `$.get`, `$.post`, etc.
+2. **Views: Bootstrap**
+   - UI must visually and structurally resemble **Keycloak Admin Console and Account Console**:
+     - Left navigation
+     - Top bar
+     - Tables with filters/search
+     - Modals, forms, breadcrumbs
+3. UI requirements:
+   - List pages: search, filtering, pagination, sorting
+   - CRUD pages: validation messages, confirmation modals, toast/alert feedback
+   - Information architecture close to Keycloak (Clients, Users, Roles, Groups, Realm Settings, Events)
+4. Themes / Branding:
+   - Realm-based logo and primary color
+   - Login page styling per realm
+   - Bootstrap-based theming that mimics Keycloak’s theme system
+   - Theme settings stored in DB and applied dynamically in MVC layouts
+
+────────────────────────────────────────
+2) MVC AUTHENTICATION (COOKIE-BASED)
+────────────────────────────────────────
+
+1. **ASP.NET Core Cookie Authentication** for:
+   - Admin Console
+   - Account Console
+2. **NO server-side session state**
+   - No in-memory session
+   - No DB-backed session state
+3. Cookie security:
+   - Encrypted and signed auth ticket (ASP.NET Core Data Protection)
+   - `HttpOnly`, `Secure`, `SameSite` configured correctly
+4. Scalability:
+   - Data Protection key ring must be **persistent** (Postgres or mounted volume)
+   - If cookie size becomes a risk:
+     - Implement **ITicketStore / distributed ticket store**
+     - This is NOT session state, only encrypted auth ticket storage
+     - Justify the decision clearly
+5. Identity Server sessions (OIDC side):
+   - User sessions, token sessions, refresh tokens are stored server-side in DB
+   - Must behave like Keycloak sessions
+
+────────────────────────────────────────
+3) CORE GOAL – KEYCLOAK FEATURE PARITY (LDAP EXCLUDED)
+────────────────────────────────────────
+
+3.1 Realms (Multi-Tenant)
+- Multiple realms with isolation
+- Realm-specific:
+  - Token lifetimes
+  - Session idle/max
+  - Brute force protection
+  - Password policies (length, complexity, history, expiry)
+  - OTP/MFA policies
+  - SMTP/email configuration
+  - Authentication flow configuration (step order + conditional MFA)
+
+3.2 Protocols
+- **OIDC / OAuth2 (FULL SUPPORT)**
+  - Authorization Code + PKCE (mandatory)
+  - Client Credentials
+  - Refresh Tokens (rotation + reuse detection)
+  - Token Introspection & Revocation
+  - JWKS endpoint + signing key rotation
+- **SAML 2.0**
+  - Implement if possible
+  - If not fully implemented: provide architecture, endpoints, flows, and list missing parts clearly
+
+3.3 Clients
+- Multiple clients per realm
+- Client types:
+  - confidential / public / bearer-only equivalents
+- Redirect URI whitelist
+- CORS origins
+- Client secret hashing + rotation
+- Allowed grant types
+- Claim mapping (Keycloak-like protocol mappers)
+
+3.4 Users / Credentials / Sessions
+- User lifecycle:
+  - create / update / disable / lock / unlock
+  - password reset, email verification
+  - required actions (force password change, verify email)
+- Password hashing:
+  - Prefer **Argon2id**
+  - Explain security and performance trade-offs
+- Session management:
+  - active sessions list
+  - user logout
+  - admin forced logout
+  - remember-me, idle/max timeouts
+
+3.5 Roles / Groups / Scopes
+- Realm roles and client roles
+- Composite roles
+- Group hierarchy (tree structure)
+- Group-role mappings
+- Scopes:
+  - default scopes
+  - optional scopes
+  - scope-to-claim mapping
+
+3.6 Authentication Flows
+- Login flow:
+  - username/password
+  - conditional MFA
+- Optional registration
+- Required actions engine (policy-based)
+
+3.7 MFA
+- TOTP (Google Authenticator compatible)
+- Backup codes
+- Enforcement at:
+  - realm level
+  - group level
+  - user override
+
+3.8 Admin Console (MVC)
+- Keycloak-like admin UI:
+  - Realms
+  - Clients
+  - Users
+  - Roles
+  - Groups
+  - Scopes
+  - Events / Audit
+  - Themes / Branding
+- Admin authorization:
+  - realm-admin
+  - user-admin
+  - client-admin
+  - extensible fine-grained permissions (Keycloak-like)
+
+3.9 Account Console (MVC)
+- User self-service:
+  - profile management
+  - email & password change
+  - MFA management
+  - active sessions view + logout
+  - basic consent screen
+
+3.10 Events / Audit / Logging
+- Events:
+  - login, login_error, logout
+  - token_refresh
+  - client_login
+  - admin actions
+- Persist events in DB
+- Filterable UI
+- Structured logging with **Serilog**
+  - include realmId, userId, clientId, correlationId
+
+────────────────────────────────────────
+4) ARCHITECTURE & SOLUTION STRUCTURE
+────────────────────────────────────────
+
+Solution name: `IdpPlatform`
+
+Projects:
+1. IdpPlatform.Domain
+2. IdpPlatform.Application
+3. IdpPlatform.Infrastructure
+4. IdpPlatform.WebApi      → OIDC endpoints + Admin API
+5. IdpPlatform.Mvc         → Admin Console + Account Console
+
+Rules:
+- Domain:
+  - entities, value objects, invariants, domain events
+- Application:
+  - application services
+  - validators (FluentValidation)
+  - policies and interfaces
+- Infrastructure:
+  - EF Core + PostgreSQL
+  - repositories
+  - email sender
+  - signing key storage
+  - token services
+- WebApi:
+  - OpenID Connect endpoints
+  - Admin APIs
+  - Swagger (Admin only)
+- MVC:
+  - Bootstrap + jQuery UI
+  - Cookie authentication
+  - Anti-forgery protection
+
+────────────────────────────────────────
+5) TECHNICAL DECISIONS (PRODUCTION-READY)
+────────────────────────────────────────
+
+- EF Core + PostgreSQL
+  - migrations + seeding
+- OIDC/OAuth2:
+  - Prefer **OpenIddict**
+  - Justify why it fits Keycloak-like behavior
+- Persistent Data Protection keys
+- Rate limiting:
+  - token endpoint
+  - login endpoint
+- CSRF / XSS / CORS correctly configured
+- Client secrets stored hashed
+- Refresh token rotation + reuse detection
+- Brute force protection + account lockout
+- Realm-based SMTP config
+- Docker:
+  - docker-compose with PostgreSQL + applications
+- Health checks:
+  - readiness
+  - liveness
+- Admin API versioning
+- Tests:
+  - Unit tests (Application)
+  - Integration tests (OIDC endpoints + PostgreSQL)
+
+────────────────────────────────────────
+6) DATABASE MODEL (POSTGRESQL)
+────────────────────────────────────────
+
+At minimum, design these tables:
+
+- Realms
+- Clients
+- ClientRedirectUris
+- Users
+- UserCredentials
+- UserRequiredActions
+- Roles
+- RoleComposites
+- Groups (self-referencing parent)
+- GroupRoleMappings
+- UserRoleMappings
+- UserGroupMappings
+- Scopes
+- ClientScopeMappings
+- Sessions
+- AuthorizationCodes
+- RefreshTokens
+- SigningKeys / KeyMaterial
+- Events (Audit)
+- Consents (optional)
+- RealmThemes
+
+ALL timestamp columns must use `DateTime.Now`.
+
+────────────────────────────────────────
+7) ENDPOINTS & UI
+────────────────────────────────────────
+
+7.1 Web API – OIDC
+- `/.well-known/openid-configuration`
+- `/connect/authorize`
+- `/connect/token`
+- `/connect/userinfo`
+- `/connect/introspect`
+- `/connect/revocation`
+- `/connect/logout`
+- `/jwks`
+
+Admin API:
+- `/admin/realms`
+- `/admin/clients`
+- `/admin/users`
+- `/admin/roles`
+- `/admin/groups`
+- `/admin/scopes`
+- `/admin/events`
+
+Each endpoint must define:
+- authorization rules
+- validation
+- RFC-compliant error responses
+- audit event generation
+
+7.2 MVC UI
+- Admin Console:
+  - Realm Settings
+  - Clients
+  - Users
+  - Roles
+  - Groups
+  - Scopes
+  - Events
+  - Themes
+- Account Console:
+  - Profile
+  - Password
+  - MFA
+  - Sessions
+  - Consents
+- UI stack:
+  - Bootstrap
+  - jQuery
+  - AJAX calls to Admin API
+
+────────────────────────────────────────
+8) REQUIRED OUTPUTS
+────────────────────────────────────────
+
+1. Solution structure + creation commands
+2. `.csproj` files (net10.0 + latest packages)
+3. EF Core entities + DbContext + migrations
+4. OpenIddict configuration + endpoint implementations
+5. MVC UI pages (Bootstrap + jQuery, Keycloak-like layout)
+6. Docker compose
+7. `appsettings` templates
+8. Security checklist + trade-offs
+9. Local development run instructions
+
+────────────────────────────────────────
+9) QUALITY BAR
+────────────────────────────────────────
+
+- This is NOT a demo.
+- Must be production-ready:
+  - proper error handling
+  - structured logging
+  - migrations & seeding
+  - secure defaults (PKCE, secret hashing, token rotation)
+  - strict multi-realm isolation
+- If anything is incomplete:
+  - list missing parts
+  - explain why
+  - explain how to complete them
+  - core OIDC/OAuth2 + admin/user management MUST work
+
+────────────────────────────────────────
+10) START HERE
+────────────────────────────────────────
+
+First output:
+1) Architecture plan  
+2) Module breakdown  
+3) Database schema + critical indexes  
+4) Endpoint map  
+5) UI page map (mirroring Keycloak menu structure)
+
+Then proceed to code generation:
+- solution setup
+- csproj files
+- layers
+- EF Core
+- OIDC
+- MVC UI
+
+────────────────────────────────────────
+IMPORTANT NOTE
+────────────────────────────────────────
+
+Using `DateTime.Now` introduces timezone/DST risks in production systems.  
+You MUST comply with this rule, but include a **“Risks & Mitigations”** section explaining how these risks can be reduced without violating the rule.
+
+END OF PROMPT
