@@ -1,4 +1,4 @@
-You are a senior .NET architect.
+You are a senior .NET developer and a software architect. Act professionally: design clean architecture boundaries, organized folder structure, maintainable code, and production-grade conventions. Avoid hacks and messy structures.
 
 Your task is to build a complete, production-grade solution consisting of:
 
@@ -12,6 +12,32 @@ You must output:
 - No placeholders
 - No TODOs
 - Fully working code
+
+============================================================
+ADDITIONAL UI / TEMPLATE REQUIREMENTS (IMPORTANT)
+============================================================
+
+- The "base" template MUST be visually polished, modern, and corporate.
+- It must be suitable for ALL industries (generic corporate look).
+- Use Bootstrap-only layout and components (Bootstrap 5).
+- The base template should include:
+  - Modern navbar (brand + menu + language selector on the right)
+  - Hero section on homepage
+  - Services/Features section (cards)
+  - About/Highlights section
+  - Testimonials or clients section (optional but nice)
+  - Contact section with address/phone/email + simple contact form UI (form UI only; no mail sending required)
+  - Clean footer with links and social icons (Font Awesome)
+- Typography, spacing, and responsive design must be excellent.
+- Do not use custom UI frameworks. Only Bootstrap + minimal custom CSS (base.css + theme.css).
+- Theme is a palette only (CSS variables recommended). The HTML structure stays the same.
+
+- Admin UI under /manage must also be clean and usable:
+  - Bootstrap-based admin layout (topbar or simple sidebar)
+  - Tables for listing pages
+  - Forms for edit/create pages
+  - Summernote editor integration with a good UX
+  - Basic validation messages styled with Bootstrap
 
 ============================================================
 GLOBAL CONSTRAINTS (STRICT)
@@ -119,6 +145,36 @@ Global rules:
 - For disallowed tags: remove the tag but keep inner content
 
 ============================================================
+SOLUTION / FOLDER STRUCTURE (VERY IMPORTANT)
+============================================================
+
+Use a clean, organized structure like a real-world professional repo:
+
+/WebsiteGenerator.sln
+/src/
+  /WebsiteGenerator/                  (console generator)
+  /TemplatePack/                      (templates + resources + themes)
+/docs/                                (optional: design notes)
+/samples/                             (optional: sample generated output notes)
+
+Inside TemplatePack:
+- templates/base/                     (MVC template files as *.txt)
+- resources/                          (tr/en/ru json as *.txt)
+- themes/                             (theme css palettes as *.txt)
+
+Inside generated MVC project:
+- Controllers/
+- Views/
+- Views/Shared/
+- wwwroot/css/
+- wwwroot/js/
+- Data/
+- Domain/ (Entities)
+- Services/ (Localization, Sanitization, Seo)
+- Features/Manage/ (optional folder organization even if it’s one controller; do NOT use Areas)
+Keep naming and layering consistent and maintainable.
+
+============================================================
 GENERATOR PROJECT REQUIREMENTS
 ============================================================
 
@@ -130,7 +186,7 @@ Console flow:
 1) Company Name
 2) Output Directory (default: ./GeneratedSites)
 3) .NET Version (9 or 10)
-4) Template selection (default: base)
+4) Template selection (default: base; keep future-ready)
 5) Theme selection (light, dark, blue, green, purple, orange, red, teal)
 6) Seed demo data? (Y/N)
 7) Include English? (Y/N)
@@ -240,7 +296,7 @@ SEED LOGIC
 - Seed runs at startup.
 - If Page table already contains records, DO NOT seed.
 - Seed must create:
-    - Default pages
+    - Default pages (English slugs)
     - Translations based on selected languages
     - Default admin:
         Username: admin
@@ -253,8 +309,17 @@ TEMPLATE PACK STRUCTURE
 TemplatePack/
     templates/
         base/
-            (Controllers, Views, Models, Program.cs, etc.)
             All files must be stored as *.txt
+            Must include:
+              - Program.cs
+              - AppDbContext + EF setup
+              - Entities
+              - Localization JSON loader
+              - Sanitizer service
+              - SEO schema (JSON-LD generator)
+              - Controllers: PageController, CultureController, ManageController
+              - Views: polished Bootstrap pages and Manage UI
+              - Shared Layout: excellent responsive header/footer
     resources/
         tr.json.txt
         en.json.txt
@@ -263,7 +328,11 @@ TemplatePack/
         light.css.txt
         dark.css.txt
         blue.css.txt
-        etc.
+        green.css.txt
+        purple.css.txt
+        orange.css.txt
+        red.css.txt
+        teal.css.txt
 
 Selected theme must be copied as:
     wwwroot/css/theme.css
@@ -276,7 +345,6 @@ OUTPUT FORMAT
 2) Then provide full source code for:
    - Generator project
    - TemplatePack files
-   - Generated MVC project templates
 3) No missing files
 4) No partial implementations
 5) Production-ready code
