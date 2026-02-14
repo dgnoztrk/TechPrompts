@@ -1,0 +1,284 @@
+You are a senior .NET architect.
+
+Your task is to build a complete, production-grade solution consisting of:
+
+1) A Console-based Website Generator (using .NET CLI internally)
+2) A TemplatePack used by the generator
+3) A fully working generated ASP.NET Core MVC website
+
+You must output:
+- The full folder structure first
+- Then all source code files grouped by project
+- No placeholders
+- No TODOs
+- Fully working code
+
+============================================================
+GLOBAL CONSTRAINTS (STRICT)
+============================================================
+
+- .NET 9 or .NET 10 selectable from console.
+- Project creation MUST use dotnet CLI:
+    dotnet new sln
+    dotnet new mvc
+- Database: EF Core + SQLite ONLY.
+- DB file must be located in the same directory as the generated .csproj:
+    {ProjectName}.db
+- After generation:
+    dotnet ef migrations add InitialCreate
+    dotnet ef database update
+  must be executed automatically by the generator.
+
+- NO caching allowed:
+    No MemoryCache
+    No ResponseCache
+    No OutputCache
+    No distributed cache
+
+- No external logging frameworks.
+
+- Error handling should use default ASP.NET Core error pipeline.
+
+- Frontend libraries (CDN only):
+    Bootstrap
+    jQuery
+    Font Awesome (fa fa-... syntax)
+
+- Themes are CSS palettes only.
+- Template defines HTML structure/layout.
+- Theme is selected during generation and is permanent.
+
+- Multi-language support:
+    tr (default)
+    en
+    ru
+  UI texts stored in JSON files:
+    Resources/tr.json
+    Resources/en.json
+    Resources/ru.json
+
+- URL format MUST be:
+    /{culture}/{slug}
+
+- Slug is single and always English (about, vision, mission, contact etc.)
+- All languages share the same slug.
+
+- Admin panel:
+    No Area
+    No separate project
+    Single controller
+    Route prefix: /manage
+
+- Authentication:
+    ASP.NET Core Cookie Authentication (NOT Identity)
+    SlidingExpiration = true
+    ExpireTimeSpan = 20 minutes
+    Login and Logout MUST be POST
+    SecurePolicy = SameAsRequest
+    HttpOnly = true
+    SameSite = Lax
+
+- AdminUser password hashing:
+    PBKDF2
+    Stored as single string:
+    PBKDF2$iterations$saltBase64$hashBase64
+
+- HTML editor in admin:
+    Summernote via CDN
+
+- XSS Protection:
+    Custom Regex-based sanitizer (temporary approach)
+
+============================================================
+HTML SANITIZER RULES (STRICT)
+============================================================
+
+Allowed tags:
+p, br, b, strong, i, em, u,
+ul, ol, li,
+a,
+h1, h2, h3, h4,
+blockquote,
+img
+
+Allowed attributes:
+- a: href, title
+- img: src, alt, title
+
+Allowed protocols:
+- http
+- https
+- mailto (for <a>)
+- img src: ONLY http or https
+- data:, blob:, javascript: strictly forbidden
+
+Global rules:
+- Remove all on* attributes (onclick, onload, etc.)
+- Remove style attribute entirely
+- Remove script, iframe, object, embed completely
+- For disallowed tags: remove the tag but keep inner content
+
+============================================================
+GENERATOR PROJECT REQUIREMENTS
+============================================================
+
+Project name: WebsiteGenerator
+Type: Console App
+
+Console flow:
+
+1) Company Name
+2) Output Directory (default: ./GeneratedSites)
+3) .NET Version (9 or 10)
+4) Template selection (default: base)
+5) Theme selection (light, dark, blue, green, purple, orange, red, teal)
+6) Seed demo data? (Y/N)
+7) Include English? (Y/N)
+8) Include Russian? (Y/N)
+
+NameSanitizer:
+- Convert Turkish characters to ASCII
+- Remove invalid characters
+- Ensure valid Solution/Project name
+
+ScaffoldService must:
+
+- Create solution
+- Create MVC project
+- Add EF Core packages:
+    Microsoft.EntityFrameworkCore.Sqlite
+    Microsoft.EntityFrameworkCore.Design
+
+- Apply TemplatePack overlay
+- Remove .txt extension from template files
+- Perform token replacement:
+    {{CompanyName}}
+    {{SolutionName}}
+    {{ProjectName}}
+    {{DefaultTheme}}
+    {{DotNetVersion}}
+
+- Only replace tokens in text files:
+    .cs
+    .cshtml
+    .json
+    .css
+    .js
+    .csproj
+    .sln
+    .config
+    .md
+
+- Encoding must always be UTF-8 (no BOM).
+
+- Run:
+    dotnet restore
+    dotnet ef migrations add InitialCreate
+    dotnet ef database update
+
+============================================================
+GENERATED MVC PROJECT REQUIREMENTS
+============================================================
+
+Entities:
+
+Page:
+- Id
+- Type (Home/About/Vision/Mission/Contact/Custom)
+- Slug (unique, English)
+- IsPublished
+- CreatedAt
+- UpdatedAt
+
+PageTranslation:
+- Id
+- PageId
+- Culture (tr/en/ru)
+- Title
+- HtmlContent
+- SeoTitle
+- SeoDescription
+Unique(PageId, Culture)
+
+SiteSetting:
+- Id
+- Key
+- Value
+
+AdminUser:
+- Id
+- Username
+- PasswordHash
+- CreatedAt
+- LastLoginAt
+
+DbContext:
+- SQLite
+- DB file:
+    Data Source={ProjectName}.db
+- Must resolve absolute path using ContentRoot
+
+============================================================
+ROUTING & CULTURE
+============================================================
+
+Route format:
+    /{culture}/{slug}
+
+- Default culture: tr
+- Culture switch:
+    POST /culture/set
+    Set cookie
+    Redirect to same slug in new culture
+
+============================================================
+SEED LOGIC
+============================================================
+
+- Migration always runs.
+- Seed only runs if user selected seed.
+- Seed runs at startup.
+- If Page table already contains records, DO NOT seed.
+- Seed must create:
+    - Default pages
+    - Translations based on selected languages
+    - Default admin:
+        Username: admin
+        Password: Admin123!
+
+============================================================
+TEMPLATE PACK STRUCTURE
+============================================================
+
+TemplatePack/
+    templates/
+        base/
+            (Controllers, Views, Models, Program.cs, etc.)
+            All files must be stored as *.txt
+    resources/
+        tr.json.txt
+        en.json.txt
+        ru.json.txt
+    themes/
+        light.css.txt
+        dark.css.txt
+        blue.css.txt
+        etc.
+
+Selected theme must be copied as:
+    wwwroot/css/theme.css
+
+============================================================
+OUTPUT FORMAT
+============================================================
+
+1) Print full folder tree
+2) Then provide full source code for:
+   - Generator project
+   - TemplatePack files
+   - Generated MVC project templates
+3) No missing files
+4) No partial implementations
+5) Production-ready code
+
+Begin now.
