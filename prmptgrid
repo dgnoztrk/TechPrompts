@@ -1,171 +1,94 @@
-You are a senior ASP.NET Core architect and senior full-stack developer. Build a production-grade “Automatic Website Generator” (multi-site) that generates premium, ready-to-ship Bootstrap websites instantly, with rich demo content and a powerful admin CMS.
+You are a senior .NET architect and senior full-stack developer. You will UPDATE an existing ASP.NET Core Website Generator project to meet production quality, WITHOUT rewriting from scratch and WITHOUT breaking existing logic.
 
-HIGH-LEVEL PRODUCT REQUIREMENT
-This is a website generator: user clicks “Create Site” and immediately receives a finished, premium-looking website (not empty). Admin is used to customize and extend—not to create basic pages from scratch.
+PRIMARY OBJECTIVE
+Fix the current project so that it compiles cleanly, CRUD flows work end-to-end, all missing references are corrected, and cshtml views render without runtime errors. Preserve the existing architecture, data model, and generator logic as much as possible. Then polish UX/UI for internal pages (especially Contact) using Bootstrap + jQuery.
 
-HARD CONSTRAINTS (MUST NOT VIOLATE)
-1) Keep the existing Admin/auth structure intact. Do NOT redesign or replace it. Extend it.
-2) EF Core + SQLite.
-3) SQLite DB file MUST be located in the project root (same folder as the .csproj). Ensure path works in dev and publish output.
-4) Frontend MUST be 100% Bootstrap (no Tailwind). Produce a coherent, modern, sector-agnostic premium theme.
-5) Languages are FIXED: TR, EN, RU only. Admin must NOT allow adding/removing languages.
-6) HTML sanitization rules MUST stay as currently defined:
-   - External URLs only http/https; data: and blob: forbidden
-   - <img> allowed only with src/alt/title attributes
-   - No scripts/inline handlers
-7) Media upload limits: max 5MB. Allowed: .jpg .jpeg .png .webp. Must validate MIME + magic bytes and use random file names.
+NON-NEGOTIABLE RULES
+1) DO NOT redesign the whole system. Keep the existing structure and intent. Prefer small, targeted fixes.
+2) Do not change public routes/contracts unless required to fix a broken flow. If changed, add backward-compatible redirects or aliases.
+3) Do not remove features. If something is incomplete, finish it in the existing style.
+4) Fix must be consistent: controllers, viewmodels, views, EF models, validation, and mappings must match.
+5) When you add new code, follow current naming conventions and folder structure.
+6) Prefer strongly-typed views and correct Model binding. Avoid “magic ViewBag” unless already used.
 
-CORE OUTPUT QUALITY (ABSOLUTE)
-- The generated website must NEVER look empty. Every core page ships content-rich and visually premium on day one.
-- Provide multiple “industry-neutral” hero/section variants and select a sensible default.
+WORK PLAN (FOLLOW IN ORDER)
 
-ARCHITECTURE (PRODUCTION-GRADE, CLEAN, NOT OVERENGINEERED)
-- Modular architecture: Domain/Application/Infrastructure/Web (or equivalent) with clear boundaries.
-- Multi-site (multi-tenant) isolation is REQUIRED:
-  - Each Site has its own SiteId and all content/entities are scoped by SiteId.
-  - Requests resolve Site by Hostname (custom domain) or by /s/{siteKey}/... for dev.
-  - Strict query scoping (global query filters) to prevent data leakage.
-- Add audit logging for admin actions (who changed what/when).
-- Add soft delete for content + media.
+A) BASELINE HEALTH CHECK
+- Open the solution and build it. Identify all compile errors and warnings.
+- Run the app and hit the broken pages / CRUD screens to capture runtime exceptions (null refs, missing view models, incorrect view paths, missing using/imports, etc.).
+- Create a checklist of issues grouped by:
+  1) Missing ViewModels / DTOs
+  2) ManageController CRUD gaps (Create/Edit/Delete/List/Details)
+  3) Razor (.cshtml) binding errors and missing @model / wrong property names
+  4) Routing/Action mismatch, broken links in views
+  5) EF Core issues (missing migrations, wrong includes, lazy loading assumptions, missing navigation props)
+  6) Missing static assets/layout issues (broken bundles, wrong paths)
 
-DATA MODEL (MANDATORY MODULES)
-Site:
-- Site { Id, SiteKey, Name, PrimaryDomain, CreatedAt, IsActive, DefaultLanguage(TR/EN/RU), ThemeVariant, ... }
-SiteSettings (per site):
-- Logo, Favicon, BrandName, Phone, Email, Address, OfficeHours, SocialLinks, FooterText, AnalyticsIds (GA4, Meta Pixel optional), SMTP settings pointer, CookieConsent settings, etc.
+B) VIEWMODEL COMPLETION & CONSISTENCY
+- For each CRUD entity used by ManageController and views, ensure there is a complete set of ViewModels:
+  - ListItem VM (for index table/grid)
+  - Detail VM
+  - Create VM
+  - Edit VM
+  - Optional: DeleteConfirm VM
+- Ensure ViewModels reflect actual entity properties and required validation attributes.
+- Add mappings (manual mapping or existing pattern) so controller actions use VMs consistently.
+- Ensure multi-language fields / image paths / flags (e.g., ShowOnHome/IsFeatured) are present if the UI expects them. If the UI references a property, it MUST exist and be mapped.
 
-CONTENT MODULES (per site, multi-language)
-A) Pages (static pages)
-- Home, About, Services, Contact, FAQ, plus optional extra pages.
-- Pages can be system pages (locked layout) + custom pages (editable).
-- Provide a Menu Builder: header/footer menus with drag-drop ordering, nested items, per-language labels.
+C) MANAGECONTROLLER CRUD FIXES (TARGETED)
+- Audit every action in ManageController:
+  - Index: paging/sorting if present; fix null refs; ensure includes for related data.
+  - Create (GET/POST): fix model binding, validation, and persistence; handle failure re-render with correct VM data (dropdowns/tags/etc).
+  - Edit (GET/POST): correctly load entity by id, map to VM, update only intended fields, handle concurrency if already present.
+  - Details: load entity with required relations and render correct VM.
+  - Delete (GET/POST): confirm page and safe delete behavior consistent with existing logic.
+- Fix any missing actions or mismatched view names.
+- Fix anti-forgery and validation: POST actions must validate ModelState and rehydrate required reference lists.
+- Ensure all return View(...) calls point to existing cshtml and correct model types.
 
-B) Products
-C) Blog Posts
-D) Portfolio Items
+D) RAZOR (.CSHTML) REPAIR & REFERENCE FIXES
+- For each cshtml with errors:
+  - Correct the @model declaration to the right ViewModel type.
+  - Fix property name mismatches (rename references or adjust VM).
+  - Fix broken partials/components and ensure they receive correct model.
+  - Fix form tag helpers (asp-action/asp-controller/asp-route-id) to match actual actions.
+  - Fix client-side validation script references if broken.
+- Ensure layout references (CSS/JS) exist and paths are correct.
+- Remove dead/incorrect links in navigation menus that point to non-existing routes.
 
-For Products/Blog/Portfolio:
-- Use translation tables per language (TR/EN/RU).
-- Localized fields: Title, Summary, Content, MetaTitle, MetaDescription, Slug.
-- Slug MUST be auto-generated from Title (per language) and unique per language+type+site.
-- Provide optional LockSlug (recommended).
+E) DATA ACCESS & EF CORE RELIABILITY
+- Verify DbContext sets and relationships align with what controllers and views need.
+- Add missing includes for relations used in views (avoid lazy loading assumptions unless configured).
+- Ensure migrations are in sync; if needed create a migration that minimally fixes schema issues (do NOT drop data).
+- Fix seeding if it crashes or produces invalid references.
 
-TAGS & CATEGORIES
-- Tags are REQUIRED. Categories recommended.
-- Provide tag management + assignment with search/typeahead.
-- Public listing pages must support filters by tag/category and search query.
+F) UX/UI POLISHING (BOOTSTRAP + JQUERY, NO REWRITE)
+Goal: make internal pages (especially Contact) look premium with minimal code changes:
+- Keep existing layout, but improve sections using Bootstrap components:
+  - Contact page: hero header, contact cards (phone/email/address), office hours, social links, map placeholder, and a clean form layout.
+  - Add consistent spacing, typography hierarchy, and responsive grids.
+- Improve forms:
+  - Inline validation summary, field hints, proper input groups/icons where appropriate.
+  - Use Bootstrap validation styles; ensure unobtrusive validation works.
+- Improve admin CRUD pages:
+  - Better table spacing, action buttons, empty state messages, confirm dialogs (Bootstrap modal) for delete.
+  - Consistent breadcrumbs and page headers.
+- Ensure all improvements are compatible with current theme/assets and do not introduce new heavy dependencies.
 
-MEDIA LIBRARY (CENTRAL, REUSABLE)
-- Provide a Media Library in admin:
-  - upload, browse, search, copy URL, see usage references, delete (safe: block deletion if referenced or soft-delete).
-- Store under wwwroot/cdn/ with per-module folders:
-  - products:   wwwroot/cdn/products/{yyyy}/{MM}/...
-  - blog:       wwwroot/cdn/blog/{yyyy}/{MM}/...
-  - portfolio:  wwwroot/cdn/portfolio/{yyyy}/{MM}/...
-  - pages:      wwwroot/cdn/pages/{yyyy}/{MM}/... (if needed for page blocks)
-- Persist RELATIVE paths in DB.
-- Generate thumbnails (at least one) and store thumb path.
+G) QUALITY GATES (MUST PASS BEFORE FINISH)
+- Solution builds with zero compile errors.
+- Manual smoke tests:
+  - For each CRUD module: Create -> List -> Details -> Edit -> Delete works.
+  - Views render without runtime exceptions.
+  - No broken cshtml references/partials.
+- No regression to existing generator logic: site generation still functions as before.
 
-GALLERY, COVER & ORDERING (NO CONFLICT WITH HOME FLAGS)
-- Use ONLY SortOrder (int) for image ordering.
-- Cover image is ALWAYS SortOrder=1.
-- Admin gallery must support drag-drop ordering and persist SortOrder.
-- Upload: first selected image becomes SortOrder=1 by default.
-- Applies to Products, Blog Posts, Portfolio items.
+OUTPUT REQUIREMENTS
+- Commit-style changes: explain what was fixed in:
+  1) ViewModels added/updated
+  2) ManageController fixes per entity
+  3) cshtml fixes (which views)
+  4) UX improvements (which pages/sections)
+- Keep changes minimal and consistent with existing patterns.
 
-HOME VISIBILITY & CURATION
-For Products/Blog/Portfolio:
-- ShowOnHome (bool), IsFeatured (bool), HomeSortOrder (int optional).
-Home page must render:
-- Featured Products (with cover images), Latest Blog Posts, Featured Portfolio, Testimonials, CTA.
-
-PAGE/SECTION BUILDER (KEY GENERATOR FEATURE)
-- Provide a simple Section Builder for Home (and optionally other pages):
-  - Sections are pre-defined Bootstrap components: Hero, Features, Service Grid, Pricing, FAQ, Testimonials, Stats, Logos, CTA, Map, Contact Strip.
-  - Admin can reorder sections via drag-drop and enable/disable them.
-  - Each section has a JSON config per language (sanitized and validated), NOT arbitrary raw HTML.
-- For custom pages with rich text, keep existing editor + sanitizer rules (unchanged).
-
-DEFAULT PAGES (MUST SHIP POLISHED & POPULATED)
-Create these pages with premium Bootstrap layouts and rich demo content for TR/EN/RU:
-- Home (multiple sections)
-- About (story/timeline/team/stats)
-- Services (cards/process/faq/cta)
-- Products (grid + detail + filters)
-- Blog (list + featured + detail)
-- Portfolio (grid + detail)
-- Contact (strong visual layout with demo phone/email/address/hours/social + map placeholder + working form)
-- FAQ (accordion)
-Also include:
-- 404 page and 500/error page (styled)
-- Privacy Policy + Terms pages (starter text, localized)
-
-CONTACT FORM + FORMS MODULE (GENERATOR MUST-HAVE)
-- Working contact form with validation.
-- Anti-spam: honeypot + rate limiting + optional reCAPTCHA toggle (configurable).
-- Store submissions in DB scoped by SiteId; admin list + export CSV.
-
-SEO & DISCOVERABILITY (MUST HAVE)
-- Generate sitemap.xml per site and per language.
-- robots.txt per site.
-- Canonical URLs, hreflang tags for TR/EN/RU.
-- OpenGraph + Twitter cards: use cover image automatically.
-- Meta title/description per page/content with fallbacks.
-- Redirect manager (301/302) for changed slugs (on title change if LockSlug=false, store old->new).
-
-PERFORMANCE & RELIABILITY
-- Pagination everywhere (products/blog/portfolio/admin lists).
-- Caching for home page sections and site settings (per site+lang).
-- Use thumbnails on lists; lazy-load images.
-- Transactional consistency: entity + images save as one unit; if DB fails after upload, cleanup orphan files.
-- Background cleanup job (on startup or admin action) to detect orphan media references.
-
-PUBLISHING WORKFLOW (CMS MUST-HAVE)
-For Products/Blog/Portfolio/Pages:
-- Draft/Published states
-- PublishAt scheduling (optional but recommended)
-- Unpublish
-- Simple revision history for rich-text content (store previous versions).
-
-IMPORT/EXPORT / SNAPSHOTS (GENERATOR MUST-HAVE)
-- Ability to export a site configuration + content as a JSON package (excluding binaries or with optional zip including media).
-- Ability to import to create a new site from a package.
-- Provide site “snapshot/rollback”: keep last N exports for rollback safety.
-
-SECURITY REQUIREMENTS
-- Role-based authorization (use existing roles; add granular policies if compatible).
-- CSRF protection on forms.
-- Rate limiting on public endpoints (contact form, search).
-- Strict validation + output encoding.
-- Maintain existing sanitizer constraints exactly.
-- Never allow arbitrary file execution or untrusted HTML beyond sanitizer rules.
-
-SEEDING (MANDATORY)
-On first run for each created site, seed PREMIUM demo content for TR/EN/RU:
-- Site settings with realistic phone/email/address/hours and social links
-- At least: 6 products, 6 blog posts, 6 portfolio items
-- Tags and categories applied realistically
-- Demo images physically present under wwwroot/cdn/... and thumbs generated
-- Home page section builder pre-configured with a polished section order and copy
-Seed content must make the site look ready for production immediately.
-
-ADMIN UX QUALITY
-- Fast CRUD with search, filters (status, tag, category, language), and bulk actions.
-- Drag-drop for menus, sections, and galleries.
-- Clear validation messages.
-- Media library with usage references.
-
-DELIVERABLES
-- Full source code with clean folder structure and consistent naming.
-- EF Core migrations + seeding.
-- Multi-site support with strict tenant isolation.
-- Public site fully styled Bootstrap theme + content-rich pages out of the box.
-- Admin extensions: products/blog/portfolio/pages, tags/categories, menus, section builder, media library, contact submissions, redirects, import/export.
-
-ABSOLUTE ACCEPTANCE CRITERIA
-- Creating a site must instantly yield a premium, content-rich website (TR/EN/RU).
-- No empty core pages.
-- Product/Blog/Portfolio support images with safe upload to wwwroot/cdn and persisted paths.
-- Cover image is always SortOrder=1, reorderable via drag-drop.
-- ShowOnHome/IsFeatured/HomeSortOrder exists and works.
-- Existing admin/auth and existing sanitizer rules remain unchanged.
+IMPORTANT: Preserve the current project’s intent and structure. Fix missing references, missing models, broken CRUD, and cshtml errors. Then improve UX for inner pages (especially Contact) using Bootstrap + jQuery.
