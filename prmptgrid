@@ -1,344 +1,171 @@
-````text
-Sen bir .NET 10 ve kripto trading konusunda uzman bir yazılım mimarısın.  
-Cursor ortamında çalıştığını, TEK SEFERDE tam çalışan bir çözüm üretmen gerektiğini unutma.  
+You are a senior ASP.NET Core architect and senior full-stack developer. Build a production-grade “Automatic Website Generator” (multi-site) that generates premium, ready-to-ship Bootstrap websites instantly, with rich demo content and a powerful admin CMS.
 
-HEDEF:
-- BinanceTR üzerinde DOGE/TRY (BinanceTR sembol formatı: "DOGE_TRY") için SPOT GRID TRADING BOTU yazılacak.
-- .NET 10 (TargetFramework: net10.0) ile çalışan, production-quality bir console uygulaması olacak.
-- Grid sayısı varsayılan 12 olacak (GridCount = 12), ama appsettings.json’dan değiştirilebilir olacak.
-- Exchange entegrasyonu için sadece BinanceTR NuGet paketi kullanılacak:
-  - `dotnet add package BinanceTR --version 1.3.0`
-  - Namespace: `using BinanceTr;`
-  - Client: `var client = new BinanceTrClient(apiKey, secretKey);` gibi.
+HIGH-LEVEL PRODUCT REQUIREMENT
+This is a website generator: user clicks “Create Site” and immediately receives a finished, premium-looking website (not empty). Admin is used to customize and extend—not to create basic pages from scratch.
 
-ÇÖZÜM / SOLUTION YAPISI:
-- Solution adı: `DogeTryGridMaster`
-- Tek bir console proje: `DogeTryGridMaster.Bot`
-- Proje tipi: .NET 10 console (generic host kullan, background service tarzı çalışan bot).
-- Tüm dosyaları TEK CEVAPTA üret:
-  - DogeTryGridMaster.sln (içerik olarak göster, .sln formatı ile)
-  - DogeTryGridMaster.Bot.csproj
-  - Program.cs
-  - appsettings.json
-  - Domain (Entities, Enums, Value Objects) dosyaları
-  - Application servisleri (interface ve implementation)
-  - Infrastructure (BinanceTR client wrapper, repositories, logging)
-  - Config sınıfları (strong-typed options)
-  - İstersen minimal birkaç unit test dosyası (ör: DogeTryGridMaster.Bot.Tests projesi ile) ama öncelik botun kusursuz çalışması.
+HARD CONSTRAINTS (MUST NOT VIOLATE)
+1) Keep the existing Admin/auth structure intact. Do NOT redesign or replace it. Extend it.
+2) EF Core + SQLite.
+3) SQLite DB file MUST be located in the project root (same folder as the .csproj). Ensure path works in dev and publish output.
+4) Frontend MUST be 100% Bootstrap (no Tailwind). Produce a coherent, modern, sector-agnostic premium theme.
+5) Languages are FIXED: TR, EN, RU only. Admin must NOT allow adding/removing languages.
+6) HTML sanitization rules MUST stay as currently defined:
+   - External URLs only http/https; data: and blob: forbidden
+   - <img> allowed only with src/alt/title attributes
+   - No scripts/inline handlers
+7) Media upload limits: max 5MB. Allowed: .jpg .jpeg .png .webp. Must validate MIME + magic bytes and use random file names.
 
-KRİTİK GENEL KURALLAR:
-- Kesinlikle adım adım gitme, TEK seferde tam çalışan çözüm ver.
-- Sadece iskelet/veri modeli verme; gerçek, derlenebilir ve mantığı dolu kod yaz.
-- Kod içinde `// TODO` bırakma.
-- Örnek değerleri, exception handling’i, logging’i GERÇEK anlamda implemente et.
-- Tüm `using` direktiflerini eksiksiz ekle.
-- Hiçbir yerde API key veya secret hard-code etme.
-  - API key ve secret sadece `appsettings.json` içinden IConfiguration/IOptions ile alınacak.
-- Yarı yolda bırakılmış sınıf/Metod bırakma. Her şey tam olmalı.
-- Türkçe/İngilizce karışık olabilir ama kod isimlendirmesi genelde İngilizce olsun.
+CORE OUTPUT QUALITY (ABSOLUTE)
+- The generated website must NEVER look empty. Every core page ships content-rich and visually premium on day one.
+- Provide multiple “industry-neutral” hero/section variants and select a sensible default.
 
-MİMARİ KATMANLAR:
+ARCHITECTURE (PRODUCTION-GRADE, CLEAN, NOT OVERENGINEERED)
+- Modular architecture: Domain/Application/Infrastructure/Web (or equivalent) with clear boundaries.
+- Multi-site (multi-tenant) isolation is REQUIRED:
+  - Each Site has its own SiteId and all content/entities are scoped by SiteId.
+  - Requests resolve Site by Hostname (custom domain) or by /s/{siteKey}/... for dev.
+  - Strict query scoping (global query filters) to prevent data leakage.
+- Add audit logging for admin actions (who changed what/when).
+- Add soft delete for content + media.
 
-1) Domain (Core) Katmanı
-   Aşağıdaki tipleri oluştur:
+DATA MODEL (MANDATORY MODULES)
+Site:
+- Site { Id, SiteKey, Name, PrimaryDomain, CreatedAt, IsActive, DefaultLanguage(TR/EN/RU), ThemeVariant, ... }
+SiteSettings (per site):
+- Logo, Favicon, BrandName, Phone, Email, Address, OfficeHours, SocialLinks, FooterText, AnalyticsIds (GA4, Meta Pixel optional), SMTP settings pointer, CookieConsent settings, etc.
 
-   - Entity: `GridLevel`
-     - Özellikler:
-       - `int Id`
-       - `decimal GridPrice`
-       - `decimal BuyPrice`
-       - `decimal SellPrice`
-       - `decimal QuoteAmount` (bu grid’e ayrılan TRY miktarı)
-       - `decimal Quantity` (DOGE adedi)
-       - `GridLevelState State` (Idle, BuyOrderPlaced, BuyFilled, SellOrderPlaced, Completed)
-       - `long? BuyOrderId`
-       - `long? SellOrderId`
-       - `DateTime? LastUpdatedAt`
-     - Davranışlar (metod olabilir veya domain service’e bırakabilirsin).
+CONTENT MODULES (per site, multi-language)
+A) Pages (static pages)
+- Home, About, Services, Contact, FAQ, plus optional extra pages.
+- Pages can be system pages (locked layout) + custom pages (editable).
+- Provide a Menu Builder: header/footer menus with drag-drop ordering, nested items, per-language labels.
 
-   - Entity: `TradeCycle`
-     - Bir grid seviyesindeki tamamlanmış al-sat döngüsünü temsil etsin.
-     - Özellikler:
-       - `int Id`
-       - `int GridLevelId`
-       - `string Symbol` (örn: "DOGE_TRY")
-       - `long BuyOrderId`
-       - `decimal BuyPrice`
-       - `decimal BuyQuantity`
-       - `decimal BuyFee`
-       - `DateTime BuyTime`
-       - `long SellOrderId`
-       - `decimal SellPrice`
-       - `decimal SellQuantity`
-       - `decimal SellFee`
-       - `DateTime SellTime`
-       - `decimal ProfitTry` (net kar)
-       - `decimal ProfitPercentage`
+B) Products
+C) Blog Posts
+D) Portfolio Items
 
-   - Value Object: `AccountState`
-     - `decimal QuoteBalance` (TRY)
-     - `decimal BaseBalance` (DOGE)
-     - `decimal RealizedPnlTry`
-     - `decimal UnrealizedPnlTry` (istersen boş geçebilirsin, minimum olarak RealizedPnlTry yeterli ama alanı koy)
+For Products/Blog/Portfolio:
+- Use translation tables per language (TR/EN/RU).
+- Localized fields: Title, Summary, Content, MetaTitle, MetaDescription, Slug.
+- Slug MUST be auto-generated from Title (per language) and unique per language+type+site.
+- Provide optional LockSlug (recommended).
 
-   - Enums:
-     - `GridLevelState { Idle, BuyOrderPlaced, BuyFilled, SellOrderPlaced, Completed }`
-     - `OrderSide { Buy, Sell }`
-     - `OrderStatus { New, PartiallyFilled, Filled, Canceled, Rejected, Expired }`
+TAGS & CATEGORIES
+- Tags are REQUIRED. Categories recommended.
+- Provide tag management + assignment with search/typeahead.
+- Public listing pages must support filters by tag/category and search query.
 
-   - Domain Servisleri:
-     - `GridCalculator`:
-       - Girdi: `minPrice`, `maxPrice`, `gridCount`, `totalQuoteAmount`.
-       - Çıktı: `IReadOnlyList<GridLevel>` listesi.
-       - Mantık:
-         - [minPrice, maxPrice] aralığını `gridCount` eşit segmente böl.
-         - Her segment için bir `GridPrice` hesapla: `minPrice + i * step`.
-         - GridPrice etrafında buy/sell fiyatlarını ayarla:
-           - Örnek:
-             - `BuyPrice = GridPrice * (1 - 0.0015m)`  
-             - `SellPrice = GridPrice * (1 + 0.0015m)`
-         - `totalQuoteAmount`’ı tüm gridlere eşit dağıt (12 grid için her birine `totalQuoteAmount / gridCount`).
-         - `Quantity = QuoteAmount / BuyPrice` gibi hesapla.
+MEDIA LIBRARY (CENTRAL, REUSABLE)
+- Provide a Media Library in admin:
+  - upload, browse, search, copy URL, see usage references, delete (safe: block deletion if referenced or soft-delete).
+- Store under wwwroot/cdn/ with per-module folders:
+  - products:   wwwroot/cdn/products/{yyyy}/{MM}/...
+  - blog:       wwwroot/cdn/blog/{yyyy}/{MM}/...
+  - portfolio:  wwwroot/cdn/portfolio/{yyyy}/{MM}/...
+  - pages:      wwwroot/cdn/pages/{yyyy}/{MM}/... (if needed for page blocks)
+- Persist RELATIVE paths in DB.
+- Generate thumbnails (at least one) and store thumb path.
 
-     - `PnlCalculator`:
-       - Alış ve satış verileri üzerinden TRY bazlı karı hesaplar:
-         - `GrossProfit = (SellPrice - BuyPrice) * Quantity`
-         - Fee dahil net karı hesaplar:
-           - `NetProfit = GrossProfit - (BuyFee + SellFee)`
-         - Yüzde:
-           - `ProfitPercentage = NetProfit / (BuyPrice * Quantity)`.
+GALLERY, COVER & ORDERING (NO CONFLICT WITH HOME FLAGS)
+- Use ONLY SortOrder (int) for image ordering.
+- Cover image is ALWAYS SortOrder=1.
+- Admin gallery must support drag-drop ordering and persist SortOrder.
+- Upload: first selected image becomes SortOrder=1 by default.
+- Applies to Products, Blog Posts, Portfolio items.
 
-2) Application Katmanı
-   Interface’ler:
-   - `IGridTradingService`
-     - Metodlar:
-       - `Task StartAsync(CancellationToken stoppingToken);`
-       - İçeride ana loop’u yöneten servis olacak (BackgroundService’in kullandığı bir servis veya direkt BackgroundService olabilir).
+HOME VISIBILITY & CURATION
+For Products/Blog/Portfolio:
+- ShowOnHome (bool), IsFeatured (bool), HomeSortOrder (int optional).
+Home page must render:
+- Featured Products (with cover images), Latest Blog Posts, Featured Portfolio, Testimonials, CTA.
 
-   - `IExchangeService`
-     - BinanceTR kullanımını soyutlamak için:
-       - `Task<decimal> GetCurrentPriceAsync(string symbol, CancellationToken ct = default);`
-         - Bunu, `Public.GetOrderBookAsync("DOGE_TRY", limit: 5)` ile en iyi bid/ask’in ortalamasını alarak hesaplayabilirsin.
-       - `Task<AccountState> GetAccountStateAsync(CancellationToken ct = default);`
-         - `Private.GetAccountInformationAsync()` ve `GetTotalBalance("TRY")`, `GetTotalBalance("DOGE")` ile `QuoteBalance` ve `BaseBalance` üret.
-       - `Task<long> PlaceLimitOrderAsync(string symbol, OrderSide side, decimal quantity, decimal price, CancellationToken ct = default);`
-         - `Private.NewOrderAsync(symbol, sideEnum, OrderTypesEnum.LIMIT, quantity, price)`
-         - Dönen orderId değerini long olarak dön.
-       - `Task<OrderStatus> GetOrderStatusAsync(string symbol, long orderId, CancellationToken ct = default);`
-         - `Private.GetOrderDetailAsync(orderId)` sonucu üzerinden state map et.
-       - `Task CancelOrderAsync(string symbol, long orderId, CancellationToken ct = default);`
-         - `Private.CancelOrderAsync(orderId)`.
+PAGE/SECTION BUILDER (KEY GENERATOR FEATURE)
+- Provide a simple Section Builder for Home (and optionally other pages):
+  - Sections are pre-defined Bootstrap components: Hero, Features, Service Grid, Pricing, FAQ, Testimonials, Stats, Logos, CTA, Map, Contact Strip.
+  - Admin can reorder sections via drag-drop and enable/disable them.
+  - Each section has a JSON config per language (sanitized and validated), NOT arbitrary raw HTML.
+- For custom pages with rich text, keep existing editor + sanitizer rules (unchanged).
 
-   - `IGridRepository`
-     - GridLevel’ları saklamak için (ilk versiyon InMemory, istersen JSON file tabanlı storage da ekle):
-       - `Task<IReadOnlyList<GridLevel>> GetAllAsync();`
-       - `Task SaveAllAsync(IEnumerable<GridLevel> levels);`
+DEFAULT PAGES (MUST SHIP POLISHED & POPULATED)
+Create these pages with premium Bootstrap layouts and rich demo content for TR/EN/RU:
+- Home (multiple sections)
+- About (story/timeline/team/stats)
+- Services (cards/process/faq/cta)
+- Products (grid + detail + filters)
+- Blog (list + featured + detail)
+- Portfolio (grid + detail)
+- Contact (strong visual layout with demo phone/email/address/hours/social + map placeholder + working form)
+- FAQ (accordion)
+Also include:
+- 404 page and 500/error page (styled)
+- Privacy Policy + Terms pages (starter text, localized)
 
-   - `ITradeCycleRepository`
-     - Tamamlanan trade cycle’ları saklamak için (yine InMemory + opsiyonel JSON storage):
-       - `Task AddAsync(TradeCycle cycle);`
-       - `Task<IReadOnlyList<TradeCycle>> GetAllAsync();`
+CONTACT FORM + FORMS MODULE (GENERATOR MUST-HAVE)
+- Working contact form with validation.
+- Anti-spam: honeypot + rate limiting + optional reCAPTCHA toggle (configurable).
+- Store submissions in DB scoped by SiteId; admin list + export CSV.
 
-   Uygulama servisi:
-   - `GridTradingService : BackgroundService` (veya IHostedService)
-     - Constructor’da şunları al:
-       - `ILogger<GridTradingService>`
-       - `IExchangeService`
-       - `IGridRepository`
-       - `ITradeCycleRepository`
-       - `IOptions<ExchangeSettings>`
-       - `IOptions<GridSettings>`
-       - `IOptions<BotSettings>`
-     - `ExecuteAsync` içinde:
-       - Başlangıçta:
-         - Gridleri hesapla (`GridCalculator` ile).
-         - Repo’ya kaydet.
-         - Başlangıç account state logla.
-         - Grid özetini logla (12 grid seviyesinin fiyatlarını, miktarlarını).
-       - Sürekli döngü (while !stoppingToken.IsCancellationRequested):
-         - Şu adımları belirli bir interval ile yap:
-           1) Şu anki fiyatı al (`GetCurrentPriceAsync`).
-           2) Tüm gridLevel’ları dolaş:
-              - Eğer `State == Idle` ve fiyat `BuyPrice`’ın altına veya eşit seviyesine inmişse:
-                - Eğer grid için yeterli TRY yoksa (account state ile kıyaslama istersen sonra optimize edebilirsin), yine de basit versiyonda emir ver.
-                - BUY limit order aç.
-                - `State = BuyOrderPlaced`, `BuyOrderId` set et, logla.
-              - `State == BuyOrderPlaced` ise:
-                - Order status kontrol et:
-                  - `Filled` ise:
-                    - Buy fill fiyatını & fee’yi repository’de güncelle.
-                    - Hemen SELL limit order aç (`SellPrice`’tan).
-                    - `State = SellOrderPlaced`, `SellOrderId` set et.
-              - `State == SellOrderPlaced` ise:
-                - SELL emrini kontrol et:
-                  - `Filled` ise:
-                    - TradeCycle oluştur:
-                      - Buy/Sell bilgileriyle PnL hesapla (PnlCalculator).
-                      - `ITradeCycleRepository.AddAsync`.
-                    - `State = Completed` veya istersen yeniden cycle başlatmak için `Idle` yap ve buy’dan yeniden başlat.
-           3) Her döngü sonunda kısa bir özet log yaz:
-              - CurrentPrice, toplam realized PnL, kaç grid aktif vs.
-         - Döngü sleep süresi: `BotSettings.PollingIntervalSeconds` kadar `Task.Delay`.
+SEO & DISCOVERABILITY (MUST HAVE)
+- Generate sitemap.xml per site and per language.
+- robots.txt per site.
+- Canonical URLs, hreflang tags for TR/EN/RU.
+- OpenGraph + Twitter cards: use cover image automatically.
+- Meta title/description per page/content with fallbacks.
+- Redirect manager (301/302) for changed slugs (on title change if LockSlug=false, store old->new).
 
-3) Infrastructure Katmanı
+PERFORMANCE & RELIABILITY
+- Pagination everywhere (products/blog/portfolio/admin lists).
+- Caching for home page sections and site settings (per site+lang).
+- Use thumbnails on lists; lazy-load images.
+- Transactional consistency: entity + images save as one unit; if DB fails after upload, cleanup orphan files.
+- Background cleanup job (on startup or admin action) to detect orphan media references.
 
-   - `ExchangeSettings` sınıfı:
-     - `string BaseUrl` (örn: "https://api.binance.tr" veya boş bırakıp BinanceTrClient default’unu kullanabilirsin)
-     - `string ApiKey`
-     - `string ApiSecret`
-     - `string Symbol` (örn: "DOGE_TRY")
+PUBLISHING WORKFLOW (CMS MUST-HAVE)
+For Products/Blog/Portfolio/Pages:
+- Draft/Published states
+- PublishAt scheduling (optional but recommended)
+- Unpublish
+- Simple revision history for rich-text content (store previous versions).
 
-   - `GridSettings` sınıfı:
-     - `decimal MinPrice`
-     - `decimal MaxPrice`
-     - `int GridCount` (default 12)
-     - `decimal TotalQuoteAmount`
-     - `decimal MakerFeeRate`
-     - `decimal TakerFeeRate`
-     - `bool IsPaperTrading` (true ise sadece simüle et, gerçek emir atma; false ise gerçek emir at)
+IMPORT/EXPORT / SNAPSHOTS (GENERATOR MUST-HAVE)
+- Ability to export a site configuration + content as a JSON package (excluding binaries or with optional zip including media).
+- Ability to import to create a new site from a package.
+- Provide site “snapshot/rollback”: keep last N exports for rollback safety.
 
-   - `BotSettings` sınıfı:
-     - `int PollingIntervalSeconds`
-     - `bool EnableImmediateBacktest` (şimdilik false gibi, ileride kullanılabilir)
+SECURITY REQUIREMENTS
+- Role-based authorization (use existing roles; add granular policies if compatible).
+- CSRF protection on forms.
+- Rate limiting on public endpoints (contact form, search).
+- Strict validation + output encoding.
+- Maintain existing sanitizer constraints exactly.
+- Never allow arbitrary file execution or untrusted HTML beyond sanitizer rules.
 
-   - `BinanceTrExchangeService : IExchangeService`
-     - İçinde `BinanceTrClient` instance’ı tut.
-       - `using BinanceTr;`
-       - ctor’da `ExchangeSettings` üzerinden apiKey, secret al:
-         - `var client = new BinanceTrClient(exchangeSettings.ApiKey, exchangeSettings.ApiSecret);`
-     - Method implementasyonları:
-       - `GetCurrentPriceAsync`:
-         - `Public.GetOrderBookAsync(symbol, limit: 5)` çağır.
-         - En iyi bid/ask üzerinden mid-price: `(bestBid + bestAsk) / 2m` döndür.
-       - `GetAccountStateAsync`:
-         - `Private.GetAccountInformationAsync()`
-         - `QuoteBalance = account.GetTotalBalance("TRY");`
-         - `BaseBalance = account.GetTotalBalance("DOGE");`
-       - `PlaceLimitOrderAsync`:
-         - OrderSideEnum ve OrderTypesEnum.LIMIT kullan:
-           - side map’i: bizim OrderSide -> BinanceTR OrderSideEnum.
-         - Dönen order nesnesinden `OrderId` al ve dön.
-       - `GetOrderStatusAsync`:
-         - `Private.GetOrderDetailAsync(orderId)`
-         - `order.Status`’ı kendi `OrderStatus` enum’una map et.
-       - `CancelOrderAsync`:
-         - `Private.CancelOrderAsync(orderId)`.
+SEEDING (MANDATORY)
+On first run for each created site, seed PREMIUM demo content for TR/EN/RU:
+- Site settings with realistic phone/email/address/hours and social links
+- At least: 6 products, 6 blog posts, 6 portfolio items
+- Tags and categories applied realistically
+- Demo images physically present under wwwroot/cdn/... and thumbs generated
+- Home page section builder pre-configured with a polished section order and copy
+Seed content must make the site look ready for production immediately.
 
-   - Repository implementasyonları:
-     - `InMemoryGridRepository : IGridRepository`
-       - Uygulama boyunca memory’de tut.
-       - Multi-threadConcurrent durumuna dikkat etmek istersen lock kullan veya thread-safe collection kullan.
-     - `InMemoryTradeCycleRepository : ITradeCycleRepository`
-       - Benzer şekilde memory.
+ADMIN UX QUALITY
+- Fast CRUD with search, filters (status, tag, category, language), and bulk actions.
+- Drag-drop for menus, sections, and galleries.
+- Clear validation messages.
+- Media library with usage references.
 
-   - İstersen basit bir `JsonFileGridRepository` ve `JsonFileTradeCycleRepository` de ekleyebilirsin:
-     - `grid-levels.json` ve `trades.json` gibi dosyalara serialize/deserialize.
+DELIVERABLES
+- Full source code with clean folder structure and consistent naming.
+- EF Core migrations + seeding.
+- Multi-site support with strict tenant isolation.
+- Public site fully styled Bootstrap theme + content-rich pages out of the box.
+- Admin extensions: products/blog/portfolio/pages, tags/categories, menus, section builder, media library, contact submissions, redirects, import/export.
 
-4) Presentation / Program.cs
-
-   - `Host.CreateDefaultBuilder(args)` kullan.
-   - `ConfigureAppConfiguration` ile `appsettings.json` yükle.
-   - `ConfigureServices`:
-     - `services.Configure<ExchangeSettings>(Configuration.GetSection("ExchangeSettings"));`
-     - `services.Configure<GridSettings>(Configuration.GetSection("GridSettings"));`
-     - `services.Configure<BotSettings>(Configuration.GetSection("BotSettings"));`
-     - `services.AddSingleton<IExchangeService, BinanceTrExchangeService>();`
-     - `services.AddSingleton<IGridRepository, InMemoryGridRepository>();`
-     - `services.AddSingleton<ITradeCycleRepository, InMemoryTradeCycleRepository>();`
-     - `services.AddHostedService<GridTradingService>();`
-   - Logging:
-     - İstersen Serilog ekleyebilirsin, ama minimum olarak Microsoft.Extensions.Logging yeter.
-   - Uygulama başladığında console’a bir banner yaz:
-     - Örneğin:
-       - "DogeTryGridMaster - BinanceTR Spot Grid Bot"
-       - Symbol, GridCount, Min/Max Price, TotalQuote vb.
-
-APPCONFIG / appsettings.json
-
-Örnek bir `appsettings.json` içeriğini TAM OLARAK ver:
-
-```json
-{
-  "ExchangeSettings": {
-    "BaseUrl": "https://api.binance.tr",
-    "ApiKey": "BURAYA_API_KEY_GELECEK",
-    "ApiSecret": "BURAYA_SECRET_KEY_GELECEK",
-    "Symbol": "DOGE_TRY"
-  },
-  "GridSettings": {
-    "MinPrice": 2.0000,
-    "MaxPrice": 3.0000,
-    "GridCount": 12,
-    "TotalQuoteAmount": 1000.0,
-    "MakerFeeRate": 0.0004,
-    "TakerFeeRate": 0.0006,
-    "IsPaperTrading": true
-  },
-  "BotSettings": {
-    "PollingIntervalSeconds": 3,
-    "EnableImmediateBacktest": false
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft": "Warning",
-      "Microsoft.Hosting.Lifetime": "Information"
-    }
-  }
-}
-````
-
-NOT:
-
-* `ApiKey` ve `ApiSecret` alanlarına ben kendi değerlerimi koyacağım. Sen sadece config ve okuma kısmını yaz.
-* Eğer `IsPaperTrading = true` ise:
-
-  * BinanceTR’ye gerçek order atmadan simüle et:
-
-    * Emirleri internal memory’de tut.
-    * Fiyat eşiklerini aşınca fill etmiş gibi davran.
-  * Eğer `IsPaperTrading = false` ise:
-
-    * Gerçek BinanceTR emirlerini kullan (Private.NewOrderAsync, GetOrderDetailAsync, CancelOrderAsync).
-
-EXTRA:
-
-* Birkaç temel unit test ekleyebilirsin (xUnit ile):
-
-  * `GridCalculator` için:
-
-    * MinPrice=2, MaxPrice=3, GridCount=12 için step ve GridPrice dizisinin beklenen değerlere yakın olduğunu test et.
-  * `PnlCalculator` için:
-
-    * Basit bir alış/satış senaryosunda beklenen kar/zararı test et.
-* Ama testler opsiyonel; öncelik BOT’un tam ve çalışır mimariye sahip olması.
-
-ÇIKTI FORMATIN:
-
-* Lütfen bütün dosyaları TEK cevapta, ayrı ayrı code block’lar içinde ver:
-
-  * `DogeTryGridMaster.sln`
-  * `DogeTryGridMaster.Bot/DogeTryGridMaster.Bot.csproj`
-  * `DogeTryGridMaster.Bot/appsettings.json`
-  * `DogeTryGridMaster.Bot/Program.cs`
-  * `DogeTryGridMaster.Bot/Domain/...` (tüm entity/enum/value object’ler)
-  * `DogeTryGridMaster.Bot/Application/...`
-  * `DogeTryGridMaster.Bot/Infrastructure/...`
-  * (Varsa) `DogeTryGridMaster.Bot.Tests/...`
-
-ÖZET:
-
-* .NET 10 console app
-* Solution: DogeTryGridMaster
-* Proje: DogeTryGridMaster.Bot
-* NuGet:
-
-  * `dotnet add package BinanceTR --version 1.3.0`
-* Symbol: "DOGE_TRY"
-* Varsayılan GridCount: 12
-* Tüm mimariyi, domain mantığını, BinanceTR entegrasyonunu, konfigürasyonu ve ana loop’u eksiksiz şekilde implemente et.
-* Tek seferde tam, derlenebilir bir çözüm üret.
-
-```
-
----
+ABSOLUTE ACCEPTANCE CRITERIA
+- Creating a site must instantly yield a premium, content-rich website (TR/EN/RU).
+- No empty core pages.
+- Product/Blog/Portfolio support images with safe upload to wwwroot/cdn and persisted paths.
+- Cover image is always SortOrder=1, reorderable via drag-drop.
+- ShowOnHome/IsFeatured/HomeSortOrder exists and works.
+- Existing admin/auth and existing sanitizer rules remain unchanged.
