@@ -1,0 +1,316 @@
+Aşağıdaki talimatları eksiksiz uygula.
+Cevap verirken açıklama yazma, sadece dosya üret, klasör oluştur, kod yaz.
+Eksik kalan her modülü kendin tamamla.
+“Burada örnek verdim” gibi yarım bırakmalar YASAK.
+
+🎯 GOAL
+
+Create a production-grade, professional Corporate CMS that I can publish per client and then fill content in production.
+This is NOT a demo, NOT a tutorial, NOT a headless CMS.
+
+🧱 TECH STACK (STRICT)
+
+Framework: .NET Core 10 MVC (preview acceptable)
+
+ORM: EF Core
+
+Database: SQLite
+
+Pattern: Clean MVC + Areas
+
+Views: Razor
+
+Language: C#
+
+Admin UI language: Turkish only
+
+Public UI language: TR + EN
+
+Styling: modern light corporate theme
+
+No hosting / IIS / deployment steps
+
+/CorporateCms
+ ├─ /CorporateCms.Web
+ │   ├─ /Areas/Admin
+ │   │   ├─ Controllers
+ │   │   ├─ Views
+ │   │   ├─ ViewModels
+ │   ├─ /Controllers
+ │   ├─ /Views
+ │   ├─ /ViewComponents
+ │   ├─ /Models
+ │   ├─ /Services
+ │   ├─ /Middlewares
+ │   ├─ /wwwroot
+ │   │   └─ /cdn/img/{blog,product,portfolio}
+ │   ├─ Program.cs
+ │   └─ appsettings.json
+ │
+ ├─ /CorporateCms.Data
+ │   ├─ Entities
+ │   ├─ Enums
+ │   ├─ DbContext
+ │   └─ Seed
+ │
+ └─ /CorporateCms.Core
+     ├─ Helpers
+     ├─ Slugify
+     ├─ Seo
+     └─ PageBuilder
+
+
+MULTI LANGUAGE (STRICT)
+
+Supported languages: tr, en
+
+URL format: /tr/... , /en/...
+
+All contents must support TR + EN using:
+
+ContentGroupId (GUID)
+
+Language field
+
+Implement:
+
+hreflang
+
+language-aware menus
+
+language switcher
+
+CONTENT TYPES (ALL REQUIRED)
+
+Implement FULL CRUD for each in Admin:
+
+Page (custom, page builder based)
+
+BlogPost (category based)
+
+Product (category only)
+
+Portfolio (category only)
+
+Service
+
+Reference
+
+FAQ
+
+Menu
+
+Category
+
+Redirect
+
+SiteSettings
+
+ContactFormSubmission
+
+Each content entity MUST have:
+
+Id (GUID)
+
+ContentGroupId
+
+Language
+
+Title
+
+Slug
+
+BodyHtml
+
+Status: Draft / Review / Published
+
+SEO fields (FULL)
+
+CreatedAt / UpdatedAt / PublishAt
+
+WORKFLOW
+
+Implement:
+
+Draft → Review → Published
+
+
+Public site shows ONLY Published
+
+Future PublishAt respected
+
+Admin UI clearly shows status
+
+PAGE BUILDER (VERY IMPORTANT)
+
+Create a component-based drag & drop page builder.
+
+Components:
+
+Hero
+
+RichText (HTML editor)
+
+Image
+
+Gallery
+
+CTA
+
+FeatureGrid
+
+BlogList
+
+ProductList
+
+PortfolioGrid
+
+FAQList
+
+Requirements:
+
+Admin UI drag & drop ordering
+
+Component settings editable
+
+Stored as JSON
+
+Rendered via Razor ViewComponents
+
+Use TinyMCE or Quill
+
+Sanitize HTML input
+
+MEDIA HANDLING
+
+Store files in:
+
+/wwwroot/cdn/img/blog
+
+/wwwroot/cdn/img/product
+
+/wwwroot/cdn/img/portfolio
+
+Filenames: GUID
+
+Thumbnail generation REQUIRED
+
+Use ImageSharp or SkiaSharp
+
+SEO (FULL, NO SHORTCUTS)
+
+Implement:
+
+Meta tags
+
+Canonical
+
+OpenGraph
+
+Twitter Card
+
+Sitemap.xml (TR + EN)
+
+Robots.txt
+
+JSON-LD:
+
+Article
+
+Product
+
+CreativeWork
+
+Organization
+
+404 page
+
+Redirect manager (301/302) via middleware
+
+ANALYTICS
+
+Admin-managed:
+
+Google Analytics
+
+Google Tag Manager
+
+Inject safely into layout.
+
+  ADMIN PANEL (TURKISH ONLY)
+
+Clean sidebar UI
+
+No authentication (but future-ready)
+
+Page Builder screen UX
+
+Menu manager (multi-level, mega menu optional)
+
+Redirect manager
+
+Media upload UI
+
+Status badges
+
+DESIGN
+
+Single light corporate theme
+
+Responsive
+
+Modern typography
+
+Clean spacing
+
+Professional homepage layout
+
+SEED DATA (MANDATORY)
+
+On first run:
+
+TR + EN menu
+
+All pages with lorem ipsum
+
+Categories
+
+Blog/Product/Portfolio samples
+
+EXPLICITLY FORBIDDEN
+
+Placeholder comments
+
+“TODO later”
+
+Pseudo code
+
+Partial examples
+
+Documentation instead of code
+
+OUTPUT RULES
+
+Write REAL CODE
+
+Create ALL FILES
+
+Ensure project RUNS
+
+No explanations, only code & file structure
+
+If something is unclear → make a reasonable architectural decision and implement it
+
+🔚 END OF PROMPT
+🧠 Son Notlar (senin için, Cursor’a yazılmayacak)
+
+Cursor’da Agent Mode + “Allow file edits” açık olsun
+
+Gerekirse ilk üretimden sonra:
+
+“PageBuilder drag-drop UX’ini iyileştir”
+
+“Admin UI’yi sadeleştir”
+
+“Seed data’yı zenginleştir”
+gibi iteratif refine prompt’lar atabilirsin.
