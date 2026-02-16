@@ -1,182 +1,277 @@
-Build ONE specific corporate website application (public site + admin CMS) using ASP.NET Core MVC targeting .NET 10 (use the latest installed stable .NET 10 SDK/TargetFramework available), EF Core, and SQLite. 
-Deliver a single runnable corporate website for ONE company. This is not a platform and must not create other websites.
+You are building a "Corporate Website Factory": a reusable .NET Core 10 MVC starter kit that I will publish per client. After publishing, the client can update the content via an admin panel. This is NOT a full CMS and MUST NOT include a drag-drop page builder or a generic content engine.
 
-ABSOLUTE SCOPE GUARDRAILS
-- Build exactly one corporate website app (public + admin management).
-- DO NOT implement anything that creates other sites/projects/templates.
-- DO NOT introduce any “builder/scaffolding/template engine/create site” concepts.
-- DO NOT use MVC Areas. No /Areas folder, no Area routing.
-- Admin management must be implemented via a single controller named ManageController, and ALL CRUD operations must be inside it.
-- Do NOT create additional CRUD controllers for those entities. Only ManageController for CRUD.
-- If your plan/code violates any of the above, delete that approach and implement correctly.
+========================
+1) TECH STACK (STRICT)
+========================
+- .NET Core 10 MVC (preview acceptable)
+- EF Core
+- SQLite
+- Razor Views
+- Bootstrap 5 + clean light corporate theme (single theme)
+- Admin panel language: Turkish only
+- Public site language: TR + EN
+- No authentication required for now, but architecture must allow adding it later easily (e.g. a single filter/attribute or middleware gate can be added later).
 
-SOLUTION STRUCTURE (Clean Architecture - EXACT)
-Create a Visual Studio solution with exactly 4 projects, all targeting .NET 10:
-1) Domain (Class Library) - entities, enums, domain rules
-2) Application (Class Library) - use cases/services, DTOs/ViewModels, validation, interfaces
-3) Infrastructure (Class Library) - EF Core DbContext, mappings, repositories, implementations, auth helpers (as needed)
-4) Web (ASP.NET Core MVC) - controllers, views, wwwroot, composition root (DI), localization, auth cookie config
-No other projects. No extra layers. Keep dependencies correct:
-- Domain has no references.
-- Application references Domain only.
-- Infrastructure references Application + Domain.
-- Web references Application + Infrastructure + Domain.
+No deployment/IIS steps.
 
-TECH REQUIREMENTS
-- .NET 10 ASP.NET Core MVC
-- EF Core (latest stable) + SQLite provider (latest stable)
-- Bootstrap 5 (latest stable) + jQuery (latest stable) via CDN ONLY
-- Theme: single theme file only: /wwwroot/css/light.css (polished corporate look, minimal but high quality)
-- Admin editor: Summernote (WYSIWYG) integrated in admin forms
-- NuGet packages must be latest STABLE versions (not preview). Keep a list in README.
+========================
+2) REPO STRUCTURE (MANDATORY)
+========================
+Create a solution named `CorporateWebsiteFactory` with projects:
+- CorporateWebsiteFactory.Web (MVC)
+- CorporateWebsiteFactory.Data (EF Core, Entities, DbContext, Migrations, Seed)
 
-DEPLOYMENT TARGET
-- IIS (include publish notes, web.config when appropriate, and DB file permissions guidance)
+Folder structure:
+CorporateWebsiteFactory.Web
+- Areas/Admin/Controllers
+- Areas/Admin/Views
+- Areas/Admin/ViewModels
+- Controllers
+- Views
+- Services
+- Middlewares
+- wwwroot/cdn/img/blog
+- wwwroot/cdn/img/product
+- wwwroot/cdn/img/portfolio
+- wwwroot/assets (css/js)
 
-LOCALIZATION
-- tr-TR, en-US, ru-RU across public site and management UI
-- Use RequestLocalization + .resx resource files
-- Provide a language switcher (public navbar + management topbar)
-- Culture via cookie, and also support explicit culture in URL segments
+CorporateWebsiteFactory.Data
+- Entities
+- Enums
+- AppDbContext.cs
+- Seed/DbSeeder.cs
+- Migrations
 
-DATABASE / SQLITE PATHING (CRITICAL)
-- SQLite DB file:
-  - Development: stored in the project root (same folder as Web.csproj)
-  - Published/IIS: stored in the publish folder (AppContext.BaseDirectory)
-- Implement a robust DbPathResolver in Infrastructure (or Web composition root) that:
-  - Detects dev vs published reliably
-  - Produces a consistent absolute path
-- Auto-migrate only in Development; in Production give manual migration steps and log schema mismatch hints.
+========================
+3) MULTI LANGUAGE (STRICT)
+========================
+- Languages: `tr`, `en`
+- URL prefix: `/tr/...` and `/en/...`
+- Implement a Language middleware or route constraint ensuring only tr/en accepted.
+- Add language switcher to the public layout.
+- Implement hreflang tags for corresponding TR/EN pages.
+- Content tables: implement translation pairing with:
+  - ContentGroupId (GUID)
+  - Language (string: tr|en)
 
-AUTH (NO ASP.NET IDENTITY)
-- Implement local user table + cookie auth:
-  - LocalUser: Id, Username, PasswordHash, PasswordSalt (PBKDF2 recommended), Role (Admin/Editor), IsActive, CreatedAt, UpdatedAt
-- Use cookie auth + claims.
-- Management endpoints require authenticated user; Users/Settings are Admin-only.
-- Seed a dev admin user using appsettings.Development.json or environment variables (never hardcode).
+========================
+4) CONTENT MODEL (CONTROLLED, NOT CMS)
+========================
+I want fixed corporate pages and structured content fields so the site cannot be broken by clients.
 
-PUBLIC SITE (must implement)
-Pages:
-- Home
-- About
-- Services (list + detail)
-- Projects/Portfolio (list + detail)
-- Blog/News (list + detail)
-- Contact (writes to DB only; no SMTP now)
-- Privacy / KVKK
-- Search (site-wide search across published Pages/Blog/Services/Projects with paging)
+Entities (all translatable via ContentGroupId+Language where applicable):
+A) SiteSettings (not translatable, or optionally per language):
+- SiteName
+- LogoPath
+- FaviconPath
+- FooterText
+- GoogleAnalyticsId (or script)
+- GoogleTagManagerId (or script)
+- DefaultMetaTitle, DefaultMetaDescription
+- Social links
 
-Routing & SEO:
-- SEO-friendly slug routes with culture:
-  /{culture}/services
-  /{culture}/services/{slug}
-  /{culture}/projects
-  /{culture}/projects/{slug}
-  /{culture}/blog
-  /{culture}/blog/{slug}
-  /{culture}/p/{slug}
-- Meta title/description per content, OpenGraph on detail pages, canonical URL
-- sitemap.xml + robots.txt
+B) MenuItem (per language)
+- Title, Url, ParentId, DisplayOrder, IsVisible
 
-UI/UX:
-- Bootstrap responsive layout: navbar/footer, hero sections, cards, good typography
-- Keep custom CSS only in light.css (clean corporate aesthetic)
-- Implement proper validation UI, accessible markup, consistent spacing.
+C) Fixed pages as structured entities (per language):
+- HomePageContent:
+  - HeroTitle, HeroSubtitle, HeroImagePath
+  - Section1Title, Section1Html
+  - Section2Title, Section2Html
+  - CTA_Title, CTA_Text, CTA_ButtonText, CTA_ButtonUrl
+- AboutPageContent:
+  - Title, BodyHtml, ImagePath
+- ServicesPageContent:
+  - Title, IntroHtml
+- ContactPageContent:
+  - Title, IntroHtml
+  - Address, Phone, Email, MapEmbedHtml
+- ReferencesPageContent:
+  - Title, IntroHtml
+- FaqPageContent:
+  - Title, IntroHtml
+(These are fixed templates; do not implement a generic Page table.)
 
-MANAGEMENT (ADMIN) - WITHOUT AREAS, SINGLE ManageController
-- Create ManageController (e.g., route prefix /manage or /admin, but still no Areas).
-- ALL CRUD must be implemented inside ManageController.
-- Use explicit action naming or route tokens to separate modules cleanly.
-  Example pattern (choose one and implement consistently):
-  - /manage/pages (list)
-  - /manage/pages/create
-  - /manage/pages/edit/{id}
-  - /manage/pages/delete/{id}
-  - /manage/pages/details/{id}
-  Similarly for posts, services, projects, categories, tags, settings, users, contact-messages.
-- Provide complete CRUD views for every module:
-  - Index (list with paging/filtering/sorting)
-  - Create
-  - Edit
-  - Details
-  - Delete (confirm)
-- Provide dashboard view: counts for messages, drafts, published items.
-- Add filtering:
-  - by publish status, category, tag, language/culture where relevant.
-- Provide ordering management for Services/Projects (SortOrder).
+D) Blog
+- BlogPost (translatable)
+  - Title, Slug, Summary, BodyHtml, FeaturedImagePath
+  - CategoryId
+  - Status: Draft/Review/Published
+  - PublishAt nullable
+  - SEO fields (see below)
+- BlogCategory (translatable)
+  - Name, Slug, DisplayOrder
 
-ENTITIES (baseline)
-Implement these domain entities (adjust but keep features):
-- Category: Id, Name, Slug, Type (Blog/Service/Project), SortOrder, IsActive
-- Tag: Id, Name, Slug
-- Page: Id, localized fields depending on strategy, Title, HtmlContent, IsPublished, SeoTitle, SeoDescription, CreatedAt, UpdatedAt
-- BlogPost: Id, Title, Summary, HtmlContent, CoverImageUrl (remote only), IsPublished, PublishedAt, Categories M2M, Tags M2M, CreatedAt, UpdatedAt
-- Service: Id, Title, ShortDescription, HtmlContent, IconCssClass, IsPublished, SortOrder, Categories M2M, Tags M2M, CreatedAt, UpdatedAt
-- Project: Id, Title, Summary, HtmlContent, CoverImageUrl (remote only), IsPublished, SortOrder, Categories M2M, Tags M2M, CreatedAt, UpdatedAt
-- SiteSetting: Id, Key, Value, Group
-- ContactMessage: Id, Name, Email, Subject, Message, CreatedAt, Status (New/InProgress/Closed), AdminNote
-- LocalUser: described above
+E) Product (catalog only)
+- ProductItem (translatable)
+  - Title, Slug, Summary, BodyHtml, FeaturedImagePath
+  - CategoryId
+  - Status + PublishAt
+  - SEO fields
+- ProductCategory (translatable)
 
-LOCALIZED CONTENT STRATEGY (pick and implement fully)
-Pick ONE and document it:
-Option A: Per entity, store localized fields in a separate table:
-  - PageTranslation / BlogPostTranslation / ServiceTranslation / ProjectTranslation with Culture, Title, HtmlContent, SeoTitle, SeoDescription, Slug
-Option B: Single table with SlugTr/SlugEn/SlugRu etc. (less clean, but acceptable if done consistently)
-Prefer Option A for cleanliness and scalability.
+F) Portfolio
+- PortfolioItem (translatable)
+  - Title, Slug, Summary, BodyHtml
+  - CategoryId
+  - FeaturedImagePath
+  - GalleryImages (separate table PortfolioImage: Id, PortfolioItemId, ImagePath, DisplayOrder)
+  - Status + PublishAt
+  - SEO fields
+- PortfolioCategory (translatable)
 
-WYSIWYG + SECURITY (CRITICAL)
-- Use Summernote in management Create/Edit forms for HtmlContent.
-- Persist raw HTML but render sanitized HTML on public pages.
+G) Reference items (optional: either translatable or single language; choose consistent approach)
+- ReferenceItem:
+  - Name, LogoPath, WebsiteUrl, DisplayOrder, IsVisible
 
-SERVER-SIDE HTML SANITIZATION + TESTS (NON-NEGOTIABLE)
-Implement sanitizer and unit tests (in Web or a small test setup under the same solution if allowed; but since only 4 projects allowed, implement tests as a simple internal test harness or use a minimal approach in Web with a test mode — still must be runnable and documented).
-Rules:
-- Disallow: script, iframe, object, embed, style
-- Remove ALL inline style attributes and ALL on* event handlers
-- Allow <img> but remote only:
-  - src must be http/https only
-  - forbid data: and blob:
-  - only allow attributes: src, alt, title
-  - invalid src => remove entire img tag
-- Allow <a> with href http/https only; add rel="noopener noreferrer"
-- Allow basic formatting tags: p, br, strong, em, ul, ol, li, h1-h6, blockquote, code, pre (optional safe tables)
-- Implement RemoteUrlValidator used for cover images, img src, logo/social URLs in settings.
+H) FAQ Items (translatable)
+- FaqItem:
+  - Question, AnswerHtml, DisplayOrder, IsVisible
 
-CODE QUALITY / RELIABILITY
-- Async EF Core everywhere.
-- Never bind EF entities directly in POST actions; always use ViewModels.
-- Add anti-forgery for all POST.
-- Add global exception handling + error pages.
-- Add structured logging.
-- Add optimistic concurrency handling (UpdatedAt check or RowVersion) to prevent lost updates.
-- Ensure no null reference issues: default values + validation + defensive coding.
+I) Redirects (not translatable)
+- RedirectRule:
+  - OldPath, NewPath, StatusCode (301/302), IsActive
 
-CDN REQUIREMENTS
-- Use reputable CDN (jsDelivr) and include integrity/crossorigin when available.
-- Put references in shared layout once (_Layout.cshtml), used by public and management pages.
-- Add light.css after Bootstrap.
+J) Contact Form Submissions (not translatable)
+- ContactSubmission:
+  - Name, Email, Message, CreatedAt
 
-DELIVERABLES
-- A complete solution that builds and runs.
-- No missing views. All CRUD views exist and are wired.
-- README includes:
-  - prerequisites (.NET 10)
-  - how to run
-  - how dev admin seeding works
-  - EF migrations instructions
-  - IIS publish steps + DB permission note + where DB lives in publish
-  - which NuGet packages and versions are used (latest stable)
+Common fields for translatable content types:
+- Id (GUID)
+- ContentGroupId (GUID)
+- Language (tr|en)
+- Slug (unique per Language per entity type)
+- CreatedAt, UpdatedAt
+- Status, PublishAt
+- SEO fields
 
-IMPLEMENTATION WORKFLOW (must keep build green)
-1) Create solution + projects + references per rules.
-2) Implement Domain entities + translation strategy.
-3) Implement Infrastructure DbContext + migrations + SQLite path resolver.
-4) Implement auth (local user + cookie) and seeding.
-5) Implement sanitizer + URL validator and document/test with malicious samples.
-6) Implement public controllers/views + routing.
-7) Implement ManageController + ALL CRUD modules + all views.
-8) Verify: build, run, login, create/edit/publish content, browse public pages in TR/EN/RU, contact form writes to DB, sitemap/robots exist.
+========================
+5) SEO (FULL)
+========================
+Implement SEO for public pages:
+- MetaTitle, MetaDescription, MetaKeywords (optional)
+- CanonicalUrl (optional)
+- OG: OgTitle, OgDescription, OgImagePath
+- Generate sitemap.xml including all published TR/EN routes:
+  - fixed pages
+  - blog posts
+  - products
+  - portfolio items
+- robots.txt
+- hreflang per page/post pairing
+- JSON-LD:
+  - WebSite + Organization global
+  - BlogPost -> Article
+  - Product -> Product (minimal)
+  - Portfolio -> CreativeWork (minimal)
 
-STOP CONDITIONS
-- If you accidentally introduce Areas or multiple CRUD controllers, remove them and re-implement with a single ManageController and no Areas.
-- If you drift into building something that creates other websites, delete that and build a normal corporate website.
+Add a clean 404 page.
+
+========================
+6) WORKFLOW (Draft -> Review -> Published)
+========================
+Implement for BlogPost/ProductItem/PortfolioItem:
+- Admin can create Draft, send to Review, publish.
+- Public shows only Published.
+- PublishAt respected (if future, treat as not published yet).
+
+========================
+7) MEDIA (SIMPLE BUT SAFE)
+========================
+- Upload images to wwwroot/cdn/img/{blog|product|portfolio} based on context.
+- Filename must be GUID + extension.
+- Validate: only jpg/jpeg/png/webp, max size 5MB.
+- Generate thumbnail on upload (e.g., 400px width) and store with `_thumb` suffix.
+- Use ImageSharp (SixLabors.ImageSharp).
+- Admin screens must allow selecting / uploading a featured image and for portfolio gallery.
+
+========================
+8) REDIRECT MANAGER (MIDDLEWARE)
+========================
+Implement middleware:
+- Normalize request path
+- Match active RedirectRule.OldPath
+- Apply 301/302
+- Prevent loops and self-redirect
+Admin CRUD for RedirectRule.
+
+========================
+9) ANALYTICS / TAG MANAGER
+========================
+In admin, manage GA/GTM ids or scripts in SiteSettings.
+Inject safely in layout (head/body positions as appropriate).
+
+========================
+10) ADMIN PANEL (TURKISH ONLY)
+========================
+Create Admin Area with:
+- Dashboard
+- Site Ayarları
+- Menü Yönetimi (tree, multi-level; allow reorder via up/down buttons at minimum)
+- Anasayfa İçeriği
+- Hakkımızda İçeriği
+- Hizmetler Sayfası İçeriği
+- İletişim Sayfası İçeriği
+- Referanslar Sayfası İçeriği
+- SSS Sayfası İçeriği + SSS Öğeleri yönetimi
+- Blog Yazıları + Blog Kategorileri
+- Ürünler + Ürün Kategorileri
+- Portfolyo + Portfolyo Kategorileri + Portfolyo Galeri
+- İletişim Formu Mesajları (read-only list/detail)
+- Yönlendirmeler (Redirect rules)
+
+Admin UI requirements:
+- Turkish labels, buttons, validation messages
+- Status badges (Taslak / İnceleme / Yayında)
+- Clean layout (sidebar + topbar)
+- Pagination on lists
+- No search required
+
+========================
+11) PUBLIC SITE (LIGHT CORPORATE THEME)
+========================
+Create a modern, elegant light corporate theme:
+- responsive header with language switcher
+- footer with settings + social links
+- pages:
+  - Home
+  - About
+  - Services (list or page sections)
+  - Blog list/detail
+  - Product list/detail
+  - Portfolio list/detail (with gallery)
+  - References
+  - FAQ
+  - Contact (form + info)
+
+Ensure routing uses /{lang}/... and content is pulled by language.
+
+========================
+12) DATABASE / MIGRATIONS / SEED (MANDATORY)
+========================
+- EF Core migrations included
+- On startup, ensure db exists and apply migrations automatically.
+- Seed TR+EN:
+  - Menu
+  - SiteSettings
+  - Fixed page content (lorem ipsum)
+  - Blog categories + sample posts
+  - Product categories + sample products
+  - Portfolio categories + sample items with gallery
+  - FAQ items
+
+========================
+13) CODE QUALITY RULES
+========================
+- No TODOs, no placeholders, no pseudo-code.
+- Create all controllers, viewmodels, views.
+- Implement Slugify helper with Turkish character normalization.
+- Use AsNoTracking for public read queries.
+- Validate unique slugs per language.
+- Keep over-abstraction low; do not create plugin system.
+
+========================
+14) OUTPUT FORMAT
+========================
+Actually create the repository files. Do not provide narrative explanations.
+If you must comment, keep to short code comments only.
