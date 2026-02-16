@@ -1,0 +1,182 @@
+Build ONE specific corporate website application (public site + admin CMS) using ASP.NET Core MVC targeting .NET 10 (use the latest installed stable .NET 10 SDK/TargetFramework available), EF Core, and SQLite. 
+Deliver a single runnable corporate website for ONE company. This is not a platform and must not create other websites.
+
+ABSOLUTE SCOPE GUARDRAILS
+- Build exactly one corporate website app (public + admin management).
+- DO NOT implement anything that creates other sites/projects/templates.
+- DO NOT introduce any “builder/scaffolding/template engine/create site” concepts.
+- DO NOT use MVC Areas. No /Areas folder, no Area routing.
+- Admin management must be implemented via a single controller named ManageController, and ALL CRUD operations must be inside it.
+- Do NOT create additional CRUD controllers for those entities. Only ManageController for CRUD.
+- If your plan/code violates any of the above, delete that approach and implement correctly.
+
+SOLUTION STRUCTURE (Clean Architecture - EXACT)
+Create a Visual Studio solution with exactly 4 projects, all targeting .NET 10:
+1) Domain (Class Library) - entities, enums, domain rules
+2) Application (Class Library) - use cases/services, DTOs/ViewModels, validation, interfaces
+3) Infrastructure (Class Library) - EF Core DbContext, mappings, repositories, implementations, auth helpers (as needed)
+4) Web (ASP.NET Core MVC) - controllers, views, wwwroot, composition root (DI), localization, auth cookie config
+No other projects. No extra layers. Keep dependencies correct:
+- Domain has no references.
+- Application references Domain only.
+- Infrastructure references Application + Domain.
+- Web references Application + Infrastructure + Domain.
+
+TECH REQUIREMENTS
+- .NET 10 ASP.NET Core MVC
+- EF Core (latest stable) + SQLite provider (latest stable)
+- Bootstrap 5 (latest stable) + jQuery (latest stable) via CDN ONLY
+- Theme: single theme file only: /wwwroot/css/light.css (polished corporate look, minimal but high quality)
+- Admin editor: Summernote (WYSIWYG) integrated in admin forms
+- NuGet packages must be latest STABLE versions (not preview). Keep a list in README.
+
+DEPLOYMENT TARGET
+- IIS (include publish notes, web.config when appropriate, and DB file permissions guidance)
+
+LOCALIZATION
+- tr-TR, en-US, ru-RU across public site and management UI
+- Use RequestLocalization + .resx resource files
+- Provide a language switcher (public navbar + management topbar)
+- Culture via cookie, and also support explicit culture in URL segments
+
+DATABASE / SQLITE PATHING (CRITICAL)
+- SQLite DB file:
+  - Development: stored in the project root (same folder as Web.csproj)
+  - Published/IIS: stored in the publish folder (AppContext.BaseDirectory)
+- Implement a robust DbPathResolver in Infrastructure (or Web composition root) that:
+  - Detects dev vs published reliably
+  - Produces a consistent absolute path
+- Auto-migrate only in Development; in Production give manual migration steps and log schema mismatch hints.
+
+AUTH (NO ASP.NET IDENTITY)
+- Implement local user table + cookie auth:
+  - LocalUser: Id, Username, PasswordHash, PasswordSalt (PBKDF2 recommended), Role (Admin/Editor), IsActive, CreatedAt, UpdatedAt
+- Use cookie auth + claims.
+- Management endpoints require authenticated user; Users/Settings are Admin-only.
+- Seed a dev admin user using appsettings.Development.json or environment variables (never hardcode).
+
+PUBLIC SITE (must implement)
+Pages:
+- Home
+- About
+- Services (list + detail)
+- Projects/Portfolio (list + detail)
+- Blog/News (list + detail)
+- Contact (writes to DB only; no SMTP now)
+- Privacy / KVKK
+- Search (site-wide search across published Pages/Blog/Services/Projects with paging)
+
+Routing & SEO:
+- SEO-friendly slug routes with culture:
+  /{culture}/services
+  /{culture}/services/{slug}
+  /{culture}/projects
+  /{culture}/projects/{slug}
+  /{culture}/blog
+  /{culture}/blog/{slug}
+  /{culture}/p/{slug}
+- Meta title/description per content, OpenGraph on detail pages, canonical URL
+- sitemap.xml + robots.txt
+
+UI/UX:
+- Bootstrap responsive layout: navbar/footer, hero sections, cards, good typography
+- Keep custom CSS only in light.css (clean corporate aesthetic)
+- Implement proper validation UI, accessible markup, consistent spacing.
+
+MANAGEMENT (ADMIN) - WITHOUT AREAS, SINGLE ManageController
+- Create ManageController (e.g., route prefix /manage or /admin, but still no Areas).
+- ALL CRUD must be implemented inside ManageController.
+- Use explicit action naming or route tokens to separate modules cleanly.
+  Example pattern (choose one and implement consistently):
+  - /manage/pages (list)
+  - /manage/pages/create
+  - /manage/pages/edit/{id}
+  - /manage/pages/delete/{id}
+  - /manage/pages/details/{id}
+  Similarly for posts, services, projects, categories, tags, settings, users, contact-messages.
+- Provide complete CRUD views for every module:
+  - Index (list with paging/filtering/sorting)
+  - Create
+  - Edit
+  - Details
+  - Delete (confirm)
+- Provide dashboard view: counts for messages, drafts, published items.
+- Add filtering:
+  - by publish status, category, tag, language/culture where relevant.
+- Provide ordering management for Services/Projects (SortOrder).
+
+ENTITIES (baseline)
+Implement these domain entities (adjust but keep features):
+- Category: Id, Name, Slug, Type (Blog/Service/Project), SortOrder, IsActive
+- Tag: Id, Name, Slug
+- Page: Id, localized fields depending on strategy, Title, HtmlContent, IsPublished, SeoTitle, SeoDescription, CreatedAt, UpdatedAt
+- BlogPost: Id, Title, Summary, HtmlContent, CoverImageUrl (remote only), IsPublished, PublishedAt, Categories M2M, Tags M2M, CreatedAt, UpdatedAt
+- Service: Id, Title, ShortDescription, HtmlContent, IconCssClass, IsPublished, SortOrder, Categories M2M, Tags M2M, CreatedAt, UpdatedAt
+- Project: Id, Title, Summary, HtmlContent, CoverImageUrl (remote only), IsPublished, SortOrder, Categories M2M, Tags M2M, CreatedAt, UpdatedAt
+- SiteSetting: Id, Key, Value, Group
+- ContactMessage: Id, Name, Email, Subject, Message, CreatedAt, Status (New/InProgress/Closed), AdminNote
+- LocalUser: described above
+
+LOCALIZED CONTENT STRATEGY (pick and implement fully)
+Pick ONE and document it:
+Option A: Per entity, store localized fields in a separate table:
+  - PageTranslation / BlogPostTranslation / ServiceTranslation / ProjectTranslation with Culture, Title, HtmlContent, SeoTitle, SeoDescription, Slug
+Option B: Single table with SlugTr/SlugEn/SlugRu etc. (less clean, but acceptable if done consistently)
+Prefer Option A for cleanliness and scalability.
+
+WYSIWYG + SECURITY (CRITICAL)
+- Use Summernote in management Create/Edit forms for HtmlContent.
+- Persist raw HTML but render sanitized HTML on public pages.
+
+SERVER-SIDE HTML SANITIZATION + TESTS (NON-NEGOTIABLE)
+Implement sanitizer and unit tests (in Web or a small test setup under the same solution if allowed; but since only 4 projects allowed, implement tests as a simple internal test harness or use a minimal approach in Web with a test mode — still must be runnable and documented).
+Rules:
+- Disallow: script, iframe, object, embed, style
+- Remove ALL inline style attributes and ALL on* event handlers
+- Allow <img> but remote only:
+  - src must be http/https only
+  - forbid data: and blob:
+  - only allow attributes: src, alt, title
+  - invalid src => remove entire img tag
+- Allow <a> with href http/https only; add rel="noopener noreferrer"
+- Allow basic formatting tags: p, br, strong, em, ul, ol, li, h1-h6, blockquote, code, pre (optional safe tables)
+- Implement RemoteUrlValidator used for cover images, img src, logo/social URLs in settings.
+
+CODE QUALITY / RELIABILITY
+- Async EF Core everywhere.
+- Never bind EF entities directly in POST actions; always use ViewModels.
+- Add anti-forgery for all POST.
+- Add global exception handling + error pages.
+- Add structured logging.
+- Add optimistic concurrency handling (UpdatedAt check or RowVersion) to prevent lost updates.
+- Ensure no null reference issues: default values + validation + defensive coding.
+
+CDN REQUIREMENTS
+- Use reputable CDN (jsDelivr) and include integrity/crossorigin when available.
+- Put references in shared layout once (_Layout.cshtml), used by public and management pages.
+- Add light.css after Bootstrap.
+
+DELIVERABLES
+- A complete solution that builds and runs.
+- No missing views. All CRUD views exist and are wired.
+- README includes:
+  - prerequisites (.NET 10)
+  - how to run
+  - how dev admin seeding works
+  - EF migrations instructions
+  - IIS publish steps + DB permission note + where DB lives in publish
+  - which NuGet packages and versions are used (latest stable)
+
+IMPLEMENTATION WORKFLOW (must keep build green)
+1) Create solution + projects + references per rules.
+2) Implement Domain entities + translation strategy.
+3) Implement Infrastructure DbContext + migrations + SQLite path resolver.
+4) Implement auth (local user + cookie) and seeding.
+5) Implement sanitizer + URL validator and document/test with malicious samples.
+6) Implement public controllers/views + routing.
+7) Implement ManageController + ALL CRUD modules + all views.
+8) Verify: build, run, login, create/edit/publish content, browse public pages in TR/EN/RU, contact form writes to DB, sitemap/robots exist.
+
+STOP CONDITIONS
+- If you accidentally introduce Areas or multiple CRUD controllers, remove them and re-implement with a single ManageController and no Areas.
+- If you drift into building something that creates other websites, delete that and build a normal corporate website.
