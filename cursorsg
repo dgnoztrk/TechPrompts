@@ -1,352 +1,204 @@
-You are a senior .NET developer and a software architect. Act professionally: design clean architecture boundaries, organized folder structure, maintainable code, and production-grade conventions. Avoid hacks and messy structures.
+You are a senior .NET architect and lead developer. Build a production-grade, single-tenant corporate website foundation (NOT a generator) using ASP.NET Core MVC targeting .NET 10 (use the latest installed stable .NET 10 SDK / TargetFramework accordingly), EF Core, and SQLite. The solution must compile and run. No broken references, missing ViewModels, broken cshtml, or missing DI registrations.
 
-Your task is to build a complete, production-grade solution consisting of:
+HARD REQUIREMENTS
+- Tech: ASP.NET Core MVC (.NET 10), EF Core, SQLite
+- UI: Bootstrap (latest stable) + jQuery (latest stable) via CDN ONLY
+- Theme: single theme, use /wwwroot/css/light.css (minimal but polished corporate styling)
+- No file uploads for images (remote URLs only)
+- Strict server-side HTML sanitization for all WYSIWYG content (see SANITIZATION section)
+- Admin authentication: simple local user table + cookie auth (NO full ASP.NET Identity)
+- Localization: TR, EN, RU (public site + admin UI), using ASP.NET Core localization with resource files
+- Deployment target: IIS (include IIS-ready settings and notes)
 
-1) A Console-based Website Generator (using .NET CLI internally)
-2) A TemplatePack used by the generator
-3) A fully working generated ASP.NET Core MVC website
+PRIMARY GOAL
+Deliver an “actually usable corporate website” with:
+1) Public site (multi-language):
+   - Home
+   - About
+   - Services (list + detail)
+   - Projects/Portfolio (list + detail)
+   - Blog/News (list + detail)
+   - Contact (writes to DB)
+   - Privacy / KVKK page
+   - Search (site-wide: blog + projects + services + pages)
+   - Sitemap.xml + robots.txt
+   - SEO-friendly URLs by slug, localized slugs supported (or shared slug strategy with localized titles, decide and document)
+2) Admin panel (Area: /Admin) with complete CRUD:
+   - Dashboard (KPIs: visits optional placeholder, but show counts: messages, drafts, published posts, etc.)
+   - Pages (CMS) - WYSIWYG + publish/unpublish + scheduling (optional)
+   - Blog/News - categories + tags + WYSIWYG + cover image URL + publish state + date
+   - Services - categories + tags + WYSIWYG + icon + ordering + publish state
+   - Projects/Portfolio - categories + tags + WYSIWYG + cover image URL + ordering + publish state
+   - Site Settings (company name, logo url, social links, contact info, address, map iframe blocked -> use safe embed approach or link-only)
+   - Contact Messages - list, detail, status (New/InProgress/Closed), notes
+   - Users (local) - create/update/disable, role assignment (Admin/Editor)
+   - Media URLs (optional helper table): store reusable remote image URLs with validation
+3) Corporate UX & UI quality:
+   - Public: responsive navbar, footer with contact/social, hero sections, card layouts, good typography, consistent spacing
+   - Admin: sidebar navigation, breadcrumbs, consistent forms, validation summaries, “toast-like” notifications (Bootstrap alerts acceptable), loading states where appropriate
+   - Use Bootstrap components properly; keep custom CSS in light.css only
 
-You must output:
-- The full folder structure first
-- Then all source code files grouped by project
-- No placeholders
-- No TODOs
-- Fully working code
+ARCHITECTURE / CODE QUALITY
+- Use a maintainable structure. Prefer:
+  /src
+    /Web (MVC, Areas/Admin, Views, wwwroot)
+    /Application (services, DTOs/ViewModels, validation)
+    /Domain (entities, enums)
+    /Infrastructure (EF Core DbContext, repositories if needed)
+  Keep it pragmatic: controllers thin, business logic in services.
+- Async EF Core everywhere.
+- Use ViewModels/DTOs for web binding. Never bind EF entities directly in POST actions.
+- Add server-side validation (DataAnnotations or FluentValidation - choose one and be consistent).
+- Add pagination, filtering, sorting for admin lists (category/tag filters included).
+- Add concurrency protection where needed (RowVersion or UpdatedAt check) to avoid lost updates.
+- Add global exception handling + user-friendly error pages.
+- Add structured logging (default ILogger).
+- Add health endpoint (e.g., /health) for basic diagnostics.
 
-============================================================
-ADDITIONAL UI / TEMPLATE REQUIREMENTS (IMPORTANT)
-============================================================
+DATABASE & SQLITE PATHING (CRITICAL)
+- SQLite DB file:
+  - Development: placed at project root (same folder as .csproj)
+  - Published/IIS: placed next to the deployed app (AppContext.BaseDirectory)
+- Implement a robust path resolver:
+  - If running from source: resolve via Directory.GetCurrentDirectory() and/or locate .csproj directory
+  - If running published: use AppContext.BaseDirectory
+  - Ensure migrations can be applied.
+- Auto-migrate on startup ONLY in Development; in Production provide manual migration step and log warnings if schema mismatch.
+- Document the IIS deployment steps and DB placement behavior clearly in README.
 
-- The "base" template MUST be visually polished, modern, and corporate.
-- It must be suitable for ALL industries (generic corporate look).
-- Use Bootstrap-only layout and components (Bootstrap 5).
-- The base template should include:
-  - Modern navbar (brand + menu + language selector on the right)
-  - Hero section on homepage
-  - Services/Features section (cards)
-  - About/Highlights section
-  - Testimonials or clients section (optional but nice)
-  - Contact section with address/phone/email + simple contact form UI (form UI only; no mail sending required)
-  - Clean footer with links and social icons (Font Awesome)
-- Typography, spacing, and responsive design must be excellent.
-- Do not use custom UI frameworks. Only Bootstrap + minimal custom CSS (base.css + theme.css).
-- Theme is a palette only (CSS variables recommended). The HTML structure stays the same.
+AUTH (LOCAL USER TABLE + COOKIE)
+- Implement your own local user table:
+  - User: Id, Username, PasswordHash, PasswordSalt (or use a strong KDF like PBKDF2/BCrypt), DisplayName, IsActive, CreatedAt, UpdatedAt
+  - Roles: Admin, Editor (store in table or as claim)
+- Use cookie authentication with claims.
+- Admin area requires Admin/Editor roles; sensitive actions (users/settings) Admin-only.
+- Seed an initial Admin in Development:
+  - Read from appsettings.Development.json or environment variables.
+  - Never hardcode credentials in source.
+  - Log a one-time message in Development if seeding happened.
 
-- Admin UI under /manage must also be clean and usable:
-  - Bootstrap-based admin layout (topbar or simple sidebar)
-  - Tables for listing pages
-  - Forms for edit/create pages
-  - Summernote editor integration with a good UX
-  - Basic validation messages styled with Bootstrap
+LOCALIZATION (TR/EN/RU)
+- Implement RequestLocalization with cultures: tr-TR, en-US, ru-RU
+- Use resource files (.resx) for UI strings (public + admin)
+- Provide a language switcher in public navbar and admin topbar
+- Persist selection via cookie, fallback to Accept-Language
+- Ensure slugs/content: choose one strategy:
+  Option A: Single slug per content item, localized title/body.
+  Option B: Per-language slug fields (SlugTr, SlugEn, SlugRu) with routing logic.
+  Pick ONE and implement fully, document it.
 
-============================================================
-GLOBAL CONSTRAINTS (STRICT)
-============================================================
+CONTENT / SEO FEATURES (SHOULD HAVE)
+- SEO:
+  - Meta title/description per page/post/project/service
+  - OpenGraph tags (title/description/image) on detail pages
+  - Canonical URL
+  - Basic JSON-LD for Organization + Article (blog)
+- Performance:
+  - Bundling not required since CDN, but enable caching headers for light.css and static assets
+  - Output caching for public list/detail pages (optional) with invalidation on publish/update
+- Accessibility basics:
+  - proper aria labels, contrast, form labels, focus states
 
-- .NET 9 or .NET 10 selectable from console.
-- Project creation MUST use dotnet CLI:
-    dotnet new sln
-    dotnet new mvc
-- Database: EF Core + SQLite ONLY.
-- DB file must be located in the same directory as the generated .csproj:
-    {ProjectName}.db
-- After generation:
-    dotnet ef migrations add InitialCreate
-    dotnet ef database update
-  must be executed automatically by the generator.
+WYSIWYG EDITOR
+- Use Summernote in admin forms.
+- Persist HtmlContent fields in DB.
+- Render sanitized HTML on public pages ONLY.
 
-- NO caching allowed:
-    No MemoryCache
-    No ResponseCache
-    No OutputCache
-    No distributed cache
+SANITIZATION (NON-NEGOTIABLE)
+Implement a server-side sanitizer and tests. Rules:
+- Disallow: <script>, <iframe>, <object>, <embed>, <style> (and inline style attributes)
+- Remove all event handlers: on* attributes everywhere
+- Allow <img> tag but:
+  - src must be http/https only
+  - prohibit data: and blob: everywhere
+  - only allow attributes: src, alt, title
+  - if invalid src -> remove the entire img tag (preferred) or strip src making it harmless; choose one and be consistent
+- Allow <a> but:
+  - href http/https only
+  - add rel="noopener noreferrer" and target="_blank" optionally (decide and document)
+- Allow common formatting tags:
+  p, br, strong, em, b, i, u, ul, ol, li, h1-h6, blockquote, code, pre
+  optional table tags (table, thead, tbody, tr, th, td) if safe
+- Provide unit tests with malicious payloads:
+  - javascript: URLs
+  - data: and blob:
+  - onerror/onload
+  - mixed casing & encoded payloads
+  - nested tags attempting bypass
+- Also implement a strict RemoteUrlValidator for:
+  - CoverImageUrl, img src, social/logo URLs
+  - enforce http/https
+  - optional allowlist domains (do NOT enforce unless configured)
 
-- No external logging frameworks.
+CDN REQUIREMENTS (LATEST STABLE)
+- Add Bootstrap and jQuery from official CDNs (jsDelivr or official recommended).
+- Use integrity + crossorigin where available.
+- Keep versions in one place (e.g., _Layout constants or config) but since CDN, hardcode stable versions and document how to update.
 
-- Error handling should use default ASP.NET Core error pipeline.
+ENTITY MODEL (BASELINE)
+Implement entities with categories + tags:
+- Category: Id, Name, Slug, Type (Blog/Service/Project), SortOrder, IsActive
+- Tag: Id, Name, Slug
+- Page: Id, Culture-aware fields (depending on strategy), Title, HtmlContent, IsPublished, SeoTitle, SeoDescription, CreatedAt, UpdatedAt
+- BlogPost: Id, Title, Summary, HtmlContent, CoverImageUrl, IsPublished, PublishedAt, Categories (many-to-many), Tags (many-to-many), CreatedAt, UpdatedAt
+- Service: Id, Title, ShortDescription, HtmlContent, IconCssClass, IsPublished, SortOrder, Categories, Tags, CreatedAt, UpdatedAt
+- Project: Id, Title, Summary, HtmlContent, CoverImageUrl, IsPublished, SortOrder, Categories, Tags, CreatedAt, UpdatedAt
+- SiteSetting: Id, Key, Value, Group
+- ContactMessage: Id, Name, Email, Subject, Message, CreatedAt, Status, AdminNote
+- LocalUser: Id, Username, PasswordHash, PasswordSalt, Role, IsActive, CreatedAt, UpdatedAt
 
-- Frontend libraries (CDN only):
-    Bootstrap
-    jQuery
-    Font Awesome (fa fa-... syntax)
+ROUTING
+- Public routes should be SEO-friendly:
+  /{culture}/services
+  /{culture}/services/{slug}
+  /{culture}/projects
+  /{culture}/projects/{slug}
+  /{culture}/blog
+  /{culture}/blog/{slug}
+  /{culture}/p/{slug} (CMS pages)
+- Culture segment optional if you prefer cookie-based; BUT still support explicit culture in URL or provide redirect.
 
-- Themes are CSS palettes only.
-- Template defines HTML structure/layout.
-- Theme is selected during generation and is permanent.
+ADMIN AREA
+- /Admin
+- Must include:
+  - Login/Logout
+  - Role-based authorization
+  - CRUD screens with Bootstrap forms, server validation, list paging/filtering
+  - Consistent layout: sidebar + topbar
+  - Confirm modals for deletes
+  - Avoid accidental data loss
 
-- Multi-language support:
-    tr (default)
-    en
-    ru
-  UI texts stored in JSON files:
-    Resources/tr.json
-    Resources/en.json
-    Resources/ru.json
+IIS DEPLOYMENT NOTES (MUST INCLUDE IN README)
+- Provide web.config if needed (ASP.NET Core hosting bundle)
+- Ensure DB is writable by IIS app pool identity in publish folder
+- Explain where DB file lives in published environment
+- Explain how to run migrations in Production (dotnet ef database update or bundled migration runner)
 
-- URL format MUST be:
-    /{culture}/{slug}
+WORKFLOW YOU MUST FOLLOW
+1) Propose the folder structure + NuGet packages + localization strategy (A or B).
+2) Implement Domain + EF Core + migrations.
+3) Implement sanitizer + URL validator + tests first (security gate).
+4) Implement auth (local user table + cookie).
+5) Implement Admin area CRUD for all entities.
+6) Implement public pages and routing with sanitized rendering.
+7) Implement SEO/meta, sitemap.xml, robots.txt, search.
+8) Verify build and run. Fix every compile/runtime error.
 
-- Slug is single and always English (about, vision, mission, contact etc.)
-- All languages share the same slug.
+DELIVERABLES
+- A complete Visual Studio solution under /src that builds successfully.
+- All required pages and admin CRUD working end-to-end.
+- README with:
+  - prerequisites
+  - how to run
+  - how to login admin (dev seeding)
+  - migrations
+  - publish/IIS deployment and DB permissions
+- Final validation checklist with the URLs you tested.
 
-- Admin panel:
-    No Area
-    No separate project
-    Single controller
-    Route prefix: /manage
-
-- Authentication:
-    ASP.NET Core Cookie Authentication (NOT Identity)
-    SlidingExpiration = true
-    ExpireTimeSpan = 20 minutes
-    Login and Logout MUST be POST
-    SecurePolicy = SameAsRequest
-    HttpOnly = true
-    SameSite = Lax
-
-- AdminUser password hashing:
-    PBKDF2
-    Stored as single string:
-    PBKDF2$iterations$saltBase64$hashBase64
-
-- HTML editor in admin:
-    Summernote via CDN
-
-- XSS Protection:
-    Custom Regex-based sanitizer (temporary approach)
-
-============================================================
-HTML SANITIZER RULES (STRICT)
-============================================================
-
-Allowed tags:
-p, br, b, strong, i, em, u,
-ul, ol, li,
-a,
-h1, h2, h3, h4,
-blockquote,
-img
-
-Allowed attributes:
-- a: href, title
-- img: src, alt, title
-
-Allowed protocols:
-- http
-- https
-- mailto (for <a>)
-- img src: ONLY http or https
-- data:, blob:, javascript: strictly forbidden
-
-Global rules:
-- Remove all on* attributes (onclick, onload, etc.)
-- Remove style attribute entirely
-- Remove script, iframe, object, embed completely
-- For disallowed tags: remove the tag but keep inner content
-
-============================================================
-SOLUTION / FOLDER STRUCTURE (VERY IMPORTANT)
-============================================================
-
-Use a clean, organized structure like a real-world professional repo:
-
-/WebsiteGenerator.sln
-/src/
-  /WebsiteGenerator/                  (console generator)
-  /TemplatePack/                      (templates + resources + themes)
-/docs/                                (optional: design notes)
-/samples/                             (optional: sample generated output notes)
-
-Inside TemplatePack:
-- templates/base/                     (MVC template files as *.txt)
-- resources/                          (tr/en/ru json as *.txt)
-- themes/                             (theme css palettes as *.txt)
-
-Inside generated MVC project:
-- Controllers/
-- Views/
-- Views/Shared/
-- wwwroot/css/
-- wwwroot/js/
-- Data/
-- Domain/ (Entities)
-- Services/ (Localization, Sanitization, Seo)
-- Features/Manage/ (optional folder organization even if it’s one controller; do NOT use Areas)
-Keep naming and layering consistent and maintainable.
-
-============================================================
-GENERATOR PROJECT REQUIREMENTS
-============================================================
-
-Project name: WebsiteGenerator
-Type: Console App
-
-Console flow:
-
-1) Company Name
-2) Output Directory (default: ./GeneratedSites)
-3) .NET Version (9 or 10)
-4) Template selection (default: base; keep future-ready)
-5) Theme selection (light, dark, blue, green, purple, orange, red, teal)
-6) Seed demo data? (Y/N)
-7) Include English? (Y/N)
-8) Include Russian? (Y/N)
-
-NameSanitizer:
-- Convert Turkish characters to ASCII
-- Remove invalid characters
-- Ensure valid Solution/Project name
-
-ScaffoldService must:
-
-- Create solution
-- Create MVC project
-- Add EF Core packages:
-    Microsoft.EntityFrameworkCore.Sqlite
-    Microsoft.EntityFrameworkCore.Design
-
-- Apply TemplatePack overlay
-- Remove .txt extension from template files
-- Perform token replacement:
-    {{CompanyName}}
-    {{SolutionName}}
-    {{ProjectName}}
-    {{DefaultTheme}}
-    {{DotNetVersion}}
-
-- Only replace tokens in text files:
-    .cs
-    .cshtml
-    .json
-    .css
-    .js
-    .csproj
-    .sln
-    .config
-    .md
-
-- Encoding must always be UTF-8 (no BOM).
-
-- Run:
-    dotnet restore
-    dotnet ef migrations add InitialCreate
-    dotnet ef database update
-
-============================================================
-GENERATED MVC PROJECT REQUIREMENTS
-============================================================
-
-Entities:
-
-Page:
-- Id
-- Type (Home/About/Vision/Mission/Contact/Custom)
-- Slug (unique, English)
-- IsPublished
-- CreatedAt
-- UpdatedAt
-
-PageTranslation:
-- Id
-- PageId
-- Culture (tr/en/ru)
-- Title
-- HtmlContent
-- SeoTitle
-- SeoDescription
-Unique(PageId, Culture)
-
-SiteSetting:
-- Id
-- Key
-- Value
-
-AdminUser:
-- Id
-- Username
-- PasswordHash
-- CreatedAt
-- LastLoginAt
-
-DbContext:
-- SQLite
-- DB file:
-    Data Source={ProjectName}.db
-- Must resolve absolute path using ContentRoot
-
-============================================================
-ROUTING & CULTURE
-============================================================
-
-Route format:
-    /{culture}/{slug}
-
-- Default culture: tr
-- Culture switch:
-    POST /culture/set
-    Set cookie
-    Redirect to same slug in new culture
-
-============================================================
-SEED LOGIC
-============================================================
-
-- Migration always runs.
-- Seed only runs if user selected seed.
-- Seed runs at startup.
-- If Page table already contains records, DO NOT seed.
-- Seed must create:
-    - Default pages (English slugs)
-    - Translations based on selected languages
-    - Default admin:
-        Username: admin
-        Password: Admin123!
-
-============================================================
-TEMPLATE PACK STRUCTURE
-============================================================
-
-TemplatePack/
-    templates/
-        base/
-            All files must be stored as *.txt
-            Must include:
-              - Program.cs
-              - AppDbContext + EF setup
-              - Entities
-              - Localization JSON loader
-              - Sanitizer service
-              - SEO schema (JSON-LD generator)
-              - Controllers: PageController, CultureController, ManageController
-              - Views: polished Bootstrap pages and Manage UI
-              - Shared Layout: excellent responsive header/footer
-    resources/
-        tr.json.txt
-        en.json.txt
-        ru.json.txt
-    themes/
-        light.css.txt
-        dark.css.txt
-        blue.css.txt
-        green.css.txt
-        purple.css.txt
-        orange.css.txt
-        red.css.txt
-        teal.css.txt
-
-Selected theme must be copied as:
-    wwwroot/css/theme.css
-
-============================================================
-OUTPUT FORMAT
-============================================================
-
-1) Print full folder tree
-2) Then provide full source code for:
-   - Generator project
-   - TemplatePack files
-3) No missing files
-4) No partial implementations
-5) Production-ready code
-
-Begin now.
+DO NOT
+- Do not add generators/scaffolding output as an end product.
+- Do not leave TODOs that break build.
+- Do not skip sanitization or tests.
+- Do not add file upload.
+- Do not use any JS frameworks beyond jQuery and Bootstrap.
+- Do not use data/blob protocols anywhere.
