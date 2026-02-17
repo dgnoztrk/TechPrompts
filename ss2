@@ -1,0 +1,236 @@
+Sen kıdemli bir .NET 10 (ASP.NET Core MVC) mimarı ve UI/UX odaklı full-stack mühendissin. Elimde halihazırda ASP.NET Core MVC kurumsal website projesi var. Bu projeyi “tamamlayacağız”: Ürün, Blog, Portfolio/CaseStudy içerikleri; bunların kategori yönetimleri; admin CRUD’ları eksiksiz; TR/EN çoklu dil (admin’den yönetilebilir + son kullanıcı switch); medya yükleme + otomatik thumbnail; CDN klasör standardı; veritabanında doğru modelleme (Product.Images jsonb). Mevcut projeyi BOZMA: var olan sayfa/route’ları kırma; gerekirse yeni route ekle, eskileri koru.
+
+TEKNOLOJİ / KISITLAR (KESİN)
+- ASP.NET Core (.NET 10) MVC (Razor Views), Areas (Admin) kullanılacak.
+- EF Core + PostgreSQL (Npgsql) kullanılacak (jsonb zorunluluğu nedeniyle).
+- Frontend: Bootstrap 5 + jQuery (SPA yok, ağır UI kütüphanesi yok).
+- Güvenlik: antiforgery, rate limit, upload whitelist, path traversal koruması.
+- UX: premium kurumsal, sektör bağımsız, mobil öncelikli, erişilebilir (A11y).
+- SEO: SSR + meta/OG + canonical + sitemap + robots + hreflang.
+
+1) ÇOKLU DİL (TR/EN) — SON KULLANICI SWITCH + ADMIN’DEN YÖNETİM (KESİN)
+Hedef: Hem “UI metinleri” hem “içerik metinleri” TR/EN yönetilebilir olacak.
+
+1.1 Kültür seçimi ve switch (Public)
+- Navbar’da TR/EN switch zorunlu.
+- Seçim cookie ile saklanacak (ör. .AspNetCore.Culture).
+- Uygulama, RequestLocalization middleware ile cookie’ye göre CultureInfo seçecek.
+- SEO: her sayfada hreflang tr/en linkleri üret; canonical doğru olsun.
+- Fallback: seçilen dilde içerik alanı boşsa default dile (tr-TR) düş.
+
+1.2 Admin’den dil yönetimi
+- SiteSettings veya ayrı tablo:
+  - DefaultCulture (tr-TR)
+  - SupportedCultures (en az tr-TR, en-US)
+  - “Dil aktif/pasif” yönetimi (minimum tr/en)
+- Admin ekranı: Languages/Localization Settings
+  - Varsayılan dili seç
+  - Aktif dilleri yönet (en az tr/en)
+
+1.3 UI metinleri (shared metinler)
+- .resx temel kaynaklar + DB override sistemi kur:
+  - UiTextOverride(Id, Key, Culture, Value, UpdatedAt)
+- Admin ekranı: UI Text Overrides CRUD
+  - Key arama
+  - tr/en değer düzenleme
+  - “Default’a dön” aksiyonu
+- Runtime’da: önce DB override, yoksa .resx fallback.
+
+1.4 İçerik metinleri (Product/Blog/Portfolio ve Category’leri)
+- Yaklaşım: Ölçeklenebilir olsun diye localization tablosu kullan (B yaklaşımı):
+  - LocalizedText(Id, EntityType, EntityId, Field, Culture, Value, UpdatedAt)
+  - Unique index: (EntityType, EntityId, Field, Culture)
+- EntityType örn: "Product", "ProductCategory", "BlogPost", "BlogCategory", "PortfolioItem", "PortfolioCategory"
+- Field örn: Title, Summary, Content, SeoTitle, SeoDescription, etc.
+- Admin CRUD’larda TR/EN tab’lı edit UX:
+  - Genel alanlar + TR/EN içerik alanları sekmeli.
+  - Zorunlu alanlar: Title (tr), slug, publish flag; EN opsiyonel ama önerilen.
+
+2) İÇERİK MODÜLLERİ: PRODUCT + BLOG + PORTFOLIO — KATEGORİ & CRUD (KESİN)
+
+2.1 Product & ProductCategory
+- ProductCategory:
+  - Id, ParentCategoryId (opsiyonel), Slug (unique), IsPublished, SortOrder
+  - SEO alanları LocalizedText ile yönetilecek
+  - CreatedAt, UpdatedAt
+- Product:
+  - Id, CategoryId, Slug (unique), IsPublished, SortOrder
+  - IsFeatured (opsiyonel), SKU (opsiyonel), Price/Currency (opsiyonel)
+  - BaseImageUrl (string) -> ürünün ana görseli (ilk resim)
+  - ThumbnailUrl (string) -> ürünün ana thumbnail’i (ilk resmin thumb’u)
+  - Images (jsonb) -> ürün galeri ve varyant bilgileri JSONB olacak (aşağıda detay)
+  - CreatedAt, UpdatedAt
+
+Product.Images JSONB şeması (örnek):
+[
+  {
+    "originalUrl": "/cdn/product/{guid}/original.webp",
+    "thumbnailUrl": "/cdn/product/{guid}/thumb.webp",
+    "altText": {"tr-TR": "…", "en-US": "…"},
+    "sortOrder": 1,
+    "width": 1200,
+    "height": 800,
+    "contentType": "image/webp",
+    "size": 123456
+  }
+]
+- EF Core’da jsonb mapping yap:
+  - Npgsql jsonb column + value conversion veya owned type + ToJson() yaklaşımı.
+- İlk görsel eklendiğinde:
+  - BaseImageUrl = first.originalUrl
+  - ThumbnailUrl = first.thumbnailUrl
+
+2.2 Blog & BlogCategory
+- BlogCategory:
+  - Id, ParentCategoryId (opsiyonel), Slug unique, IsPublished, SortOrder, timestamps
+  - LocalizedText: Name/Description/SEO
+- BlogPost:
+  - Id, CategoryId, Slug unique, IsPublished, PublishedAt, timestamps
+  - CoverImageUrl (string)
+  - CoverThumbnailUrl (string)
+  - Gallery (opsiyonel, normalleştirilebilir) veya basit JSON (tercih et, ama tutarlı ol)
+  - LocalizedText: Title, Excerpt, Content, SeoTitle, SeoDescription
+  - Tags (many-to-many) opsiyonel; varsa Tag’ler de localized olabilir veya key bazlı.
+
+2.3 Portfolio/CaseStudy & PortfolioCategory
+- PortfolioCategory:
+  - Id, ParentCategoryId, Slug unique, IsPublished, SortOrder, timestamps
+  - LocalizedText: Name/Description/SEO
+- PortfolioItem:
+  - Id, CategoryId, Slug unique, IsPublished, PublishedAt (opsiyonel), timestamps
+  - CoverImageUrl, CoverThumbnailUrl
+  - ClientName (opsiyonel), Results (opsiyonel alanlar)
+  - LocalizedText: Title, Summary, Content, SeoTitle, SeoDescription
+
+3) PUBLIC SAYFALAR & ROUTE’LAR (MEVCUTLARI KIRMA)
+Mevcut sayfalar korunacak; ek route’lar:
+- /products
+- /products/{slug}
+- /product-categories/{slug} (opsiyonel, faydalı)
+- /blog
+- /blog/{slug}
+- /blog-categories/{slug} (opsiyonel)
+- /portfolio
+- /portfolio/{slug}
+- /portfolio-categories/{slug} (opsiyonel)
+
+Public UX (KESİN):
+- Liste sayfaları: kategori filtresi + arama + sıralama + pagination
+- Empty state + skeleton loader (CSS)
+- Detay sayfaları: net CTA (Teklif Al/Bilgi İste) + ilgili içerik önerisi
+- Breadcrumb + PageHeader standardı
+- SEO meta + OG + canonical + hreflang
+
+4) ADMIN PANEL — CRUD’LAR EKSİKSİZ (Area: Admin)
+Zorunlu modüller:
+- Product Categories CRUD
+- Products CRUD (Images jsonb yönetimi dahil)
+- Blog Categories CRUD
+- Blog Posts CRUD
+- Portfolio Categories CRUD
+- Portfolio Items CRUD
+- UI Text Overrides CRUD
+- Localization yönetimi (Languages/Settings)
+- Media Library (opsiyonel ama önerilen; en az upload/browse seçici UX)
+
+Admin UX (KESİN):
+- Listelerde: arama + filtre (published/category) + hızlı publish toggle
+- Create/Edit ekranları sekmeli:
+  - Genel
+  - TR / EN (localized alanlar)
+  - SEO
+  - Medya
+- Kaydet sonrası toast + “Public’te görüntüle” linki
+- Delete kuralları:
+  - Kategori silme: bağlı içerik varsa engelle veya taşıma opsiyonu sun.
+  - İçerik silme: medya cleanup stratejisi (orphan dosyalar için periyodik job notu)
+
+5) MEDYA YÜKLEME, CDN KLASÖR STANDARDI, THUMBNAIL OTOMASYONU (KESİN)
+5.1 Dosya depolama standardı
+- wwwroot/cdn altında sakla:
+  - /wwwroot/cdn/blog/{guid}/
+  - /wwwroot/cdn/product/{guid}/
+  - /wwwroot/cdn/portfolio/{guid}/
+- Her upload seti için yeni bir guid klasörü (örn. içerik bazlı veya görsel bazlı):
+  - Öneri: her görsel için ayrı guid klasörü (temiz) veya içerik için sabit guid (daha kolay). Seç ve tutarlı uygula.
+- Dosya adları sabit ve öngörülebilir:
+  - original.webp (veya original.jpg/png)
+  - thumb.webp
+  - opsiyonel: large.webp, medium.webp (istersen)
+
+5.2 Thumbnail üretimi (otomatik)
+- Upload sonrası otomatik thumbnail üret:
+  - Örn: max 400px genişlik (orantılı), webp tercih.
+- Kütüphane seç (server-side):
+  - ImageSharp tercih (performans ve kullanım kolaylığı). Alternatif: SkiaSharp.
+- EXIF orientation düzelt.
+- Büyük görsellerde limit koy (örn. max 4000px) ve yeniden örnekle.
+
+5.3 Güvenlik
+- Whitelist: jpg, jpeg, png, webp, pdf (pdf için thumbnail gerekmez)
+- Max size limit + content-type doğrulama (yalnız extension’a güvenme)
+- Path traversal önlemi, random file name, directory creation güvenli
+- Public upload yok; sadece Admin.
+
+5.4 DB’de dosya yolu saklama
+- BlogPost: CoverImageUrl, CoverThumbnailUrl string alanları.
+- PortfolioItem: CoverImageUrl, CoverThumbnailUrl string alanları.
+- Product: BaseImageUrl, ThumbnailUrl string alanları + Images jsonb.
+- URL formatı uygulamada tutarlı: “/cdn/...” şeklinde web path sakla.
+
+5.5 Product.Images JSONB yönetimi (Admin)
+- Ürün edit ekranında “Gallery” yönetimi:
+  - Çoklu upload
+  - Sıralama (SortOrder) jQuery ile
+  - İlk görseli “Set as cover” veya otomatik “ilk görsel cover”
+  - Remove image -> JSONB’den çıkar + dosyayı sil (güvenli sil)
+- İlk görsel değişirse:
+  - BaseImageUrl ve ThumbnailUrl yeniden set edilir.
+
+6) UYGULAMA İŞLEYİŞİ / SERVİSLER
+- MediaService:
+  - UploadImageAsync(module: blog/product/portfolio, file) -> (originalUrl, thumbUrl, metadata)
+  - DeleteAssetAsync(url) -> dosya silme
+  - ValidateFile(file)
+- LocalizationService:
+  - GetLocalized(EntityType, EntityId, Field, culture) + fallback
+  - SetLocalized(..., culture, value)
+- SlugService:
+  - GenerateSlug(title) + uniqueness check
+- ContentQueryService:
+  - Public list/detail sorguları AsNoTracking + projection
+  - Filtre, arama, sıralama, pagination
+
+7) SEO / SİTEMAP
+- Yayınlanan içeriklerden sitemap.xml üret:
+  - products/blog/portfolio ve kategoriler (varsa)
+- robots.txt
+- OG image: içerik cover’ı varsa onu kullan
+- hreflang: tr/en alternatifleri üret (kültüre göre linkler)
+
+8) PERFORMANS / CACHE
+- Public list/detail output caching (published içerik)
+- Admin cache yok
+- N+1 önle: projection + include stratejisi
+
+9) TESLİM ŞEKLİ
+- Önce mevcut repo yapısını tara ve plan çıkar:
+  - Eklenecek tablolar, migration’lar
+  - Eklenecek controller/view/admin sayfaları
+  - MediaService + thumbnail pipeline
+  - Localization altyapısı ve switch
+- Sonra uygula.
+- Finalde:
+  - Eklenen/değişen dosyalar listesi
+  - Migration listesi
+  - Admin kullanım notları (ürün/blog/portfolio kategori + dil + ui metinleri)
+  - UX/A11y/SEO kısa kontrol raporu
+
+KALİTE KRİTERLERİ (KESİN)
+- CRUD’lar eksiksiz çalışacak (create/read/update/delete + validation + list filtreleri)
+- TR/EN switch public’te çalışacak
+- Admin’den hem içerik çevirileri hem UI overrides yönetilebilecek
+- Görsel upload sonrası thumbnail otomatik oluşacak
+- CDN klasör standardı birebir uygulanacak
+- Product.Images jsonb düzgün map edilecek ve ilk görsel cover+thumbnail olacak
+- UI/UX premium kurumsal seviyede: tutarlı spacing/typography, net CTA, empty/skeleton, responsive
