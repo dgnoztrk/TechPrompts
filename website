@@ -1,368 +1,110 @@
-You are building a "Corporate Website Factory": a reusable .NET Core 10 MVC starter kit that I will publish per client. After publishing, the client can update the content via an admin panel. This is NOT a full CMS and MUST NOT include a drag-drop page builder or a generic content engine.
+Sen kıdemli bir UI/UX + Frontend (Bootstrap 5 + jQuery) uzmansın. Elimde mevcut bir kurumsal website altyapısı var ama tasarım mantığını beğenmedim. Mevcut yapıyı BOZMADAN (route/URL ve sayfa isimleri aynı kalsın), UI/UX’i “premium kurumsal” seviyesine çıkaracak şekilde yeniden tasarla ve uygula.
 
-IMPORTANT: Do not output narrative explanations. Create real repository files and code. No TODO, no pseudo-code.
+TEKNOLOJİ KISITLARI (KESİN):
+- Bootstrap 5.x kullan.
+- jQuery kullan (plugin gibi davranışlar ve basit etkileşimler için).
+- Vanilla JS yazacaksan sadece küçük yardımcılar; ana davranış jQuery ile.
+- SPA framework kullanma (React/Vue/Angular yok).
+- CSS için: SCSS yoksa düz CSS; varsa mevcut yapı hangisiyse ona uy.
+- Harici ağır UI kütüphaneleri ekleme. (İkon için Bootstrap Icons veya FontAwesome varsa onu kullan.)
+- Kodlar erişilebilir, semantik ve production-grade olsun.
 
-========================
-1) TECH STACK (STRICT)
-========================
-- .NET Core 10 MVC (preview acceptable)
-- EF Core
-- SQLite
-- Razor Views
-- Bootstrap 5 (or minimal CSS) + clean light corporate theme (single theme)
-- Admin panel language: Turkish only
-- Public site language: TR + EN
-- No authentication required for now, but architecture must allow adding it later easily (e.g. add [Authorize] to Admin area later).
+HEDEF TASARIM DİLİ:
+- “Sektör bağımsız” kurumsal tema: finans, lojistik, sağlık, SaaS, üretim vb. hepsine gider.
+- Modern, temiz, güven veren; fazla süslü değil ama “dolu dolu”.
+- Tipografi, boşluk, hiyerarşi çok iyi: başlık, alt başlık, gövde, CTA net.
+- Renk sistemi: 1 primary, 1 secondary, 1 accent + nötrler. Çok renk yok.
+- Kartlar, gölgeler, border’lar ölçülü. (Bootstrap utilities ile mümkün olduğunca.)
+- Görsel kullanımı: hero + küçük illüstratif alanlar için “placeholder” kurgusu; gerçek görsel şart değil.
 
-No deployment/IIS steps.
+UX PRENSİPLERİ (KESİN):
+- Her sayfanın “tek ana amacı” olsun; CTA ve bilgi akışı buna hizmet etsin.
+- Above-the-fold’da: değer önerisi + 1 ana CTA + 1 ikincil CTA.
+- Her sayfada: net başlık, kısa açıklama, kanıt/özellik, süreç, sosyal kanıt, CTA.
+- Mobil öncelikli: tüm bileşenler responsive ve dokunmatik dostu.
+- Erişilebilirlik: buton/anchor ayrımı, aria-label, form label, focus state, kontrast.
+- Performans: gereksiz DOM şişirmesi yok. jQuery event delegation kullan.
 
-========================
-2) REPO STRUCTURE (MANDATORY)
-========================
-Create a solution named `CorporateWebsiteFactory` with projects:
-- CorporateWebsiteFactory.Web (MVC)
-- CorporateWebsiteFactory.Data (EF Core, Entities, DbContext, Migrations, Seed)
+ÜRETİLECEKLER (ÇIKTILAR):
+1) Bir “UI Kit / Design System” sayfası oluştur:
+   - Renk paleti, tipografi scale, spacing, butonlar, linkler, formlar, badge, alert, modal, accordion, tabs, breadcrumb, pagination, table, cards, empty state, skeleton loader (CSS).
+   - Navbar varyantı (sticky), footer varyantı.
+   - Component örnekleri ve kullanım notları.
 
-Folder structure:
-CorporateWebsiteFactory.Web
-- Areas/Admin/Controllers
-- Areas/Admin/Views
-- Areas/Admin/ViewModels
-- Controllers
-- Views
-- Services
-- Middlewares
-- wwwroot/cdn/img/blog
-- wwwroot/cdn/img/product
-- wwwroot/cdn/img/portfolio
-- wwwroot/assets/css
-- wwwroot/assets/js
-- Program.cs
-- appsettings.json
+2) Kurumsal website için tam sayfa seti üret (sektör bağımsız):
+   - Home
+   - About / Company
+   - Services (liste)
+   - Service Detail (detay)
+   - Industries / Solutions (sektörler)
+   - Case Studies (liste)
+   - Case Study Detail
+   - Blog (liste)
+   - Blog Detail
+   - Contact (form + harita placeholder + iletişim kartları)
+   - Pricing (varsa) / Packages
+   - Careers (liste) + Job Detail + Apply form
+   - FAQ
+   - Legal: Privacy Policy + Terms
+   - 404 + 500
+   - Login / Register (eğer projede varsa)
+   Not: Projede hangi sayfalar mevcutsa onları eşleştir, eksik olanları ekleme yerine “varsa üret”. Önce repo ağacını incele.
 
-CorporateWebsiteFactory.Data
-- Entities
-- Enums
-- AppDbContext.cs
-- Seed/DbSeeder.cs
-- Migrations
+3) Ortak layout ve navigasyon:
+   - Navbar: marka, ana menü, dropdown, arama (opsiyonel), sağda CTA.
+   - Mega menu gerekiyorsa basit ve erişilebilir yap.
+   - Footer: link kolonları + sosyal + newsletter (opsiyonel) + küçük metin.
+   - Breadcrumb + sayfa başlığı bölümü (Page Header) standardize.
 
-========================
-3) MULTI LANGUAGE (STRICT)
-========================
-- Languages: `tr`, `en`
-- URL prefix: `/tr/...` and `/en/...`
-- Implement language route constraint or middleware ensuring only tr/en accepted.
-- Add language switcher to the public layout.
-- Implement hreflang tags for corresponding TR/EN pages.
-- Translation pairing:
-  - ContentGroupId (GUID)
-  - Language (string: tr|en)
+4) jQuery ile UX davranışları:
+   - Sticky header + scroll shadow
+   - Smooth anchor scroll
+   - Active nav highlight
+   - “Back to top” butonu
+   - Form validation UX (Bootstrap validation) + hata mesajı yerleşimi
+   - Toast bildirim örnekleri
+   - Lazy reveal animasyonları (çok hafif; intersection observer yoksa basit scroll ile; ama performanslı)
+   - Pricing toggle (monthly/yearly) varsa
+   - Accordion/tabs state yönetimi
+   - “Copy to clipboard” küçük aksiyonlar (ör. iletişim e-postası)
 
-========================
-4) CONTENT MODEL (CONTROLLED, NOT CMS)
-========================
-No generic Page table and no page builder. Fixed pages and structured fields only.
+İÇERİK / KOPYA (METİN):
+- Metinler “kurumsal” ve genel geçer olsun, sektör bağımsız.
+- Başlıklar iddialı ama abartısız: güven, hız, kalite, ölçülebilir sonuçlar.
+- Her sayfada microcopy iyi: form placeholder/yardım metni, hata metni, empty state metni.
+- Türkçe dilinde yaz.
 
-A) SiteSettings (single row, not per language unless needed)
-- SiteName
-- LogoPath
-- FaviconPath
-- FooterText
-- GoogleAnalyticsIdOrScript (string)
-- GoogleTagManagerIdOrScript (string)
-- DefaultMetaTitle, DefaultMetaDescription
-- Social links: FacebookUrl, InstagramUrl, LinkedinUrl, XUrl, YoutubeUrl
-- ThemeSettingsId (FK)
+GÖRSEL HİYERARŞİ & BÖLÜM KURGUSU (ÖRNEK):
+Home:
+- Hero (değer önerisi + CTA)
+- Trust bar (logo placeholder)
+- 3–6 özellik kartı
+- “Nasıl çalışır” 3 adım
+- Case study highlight
+- Testimonials
+- Son CTA bandı
+Services:
+- Filtre/sıralama (opsiyonel), kart grid, her kartta kısa değer + link
+Service detail:
+- Problem → çözüm → süreç → deliverables → SSS → CTA
+Contact:
+- Kısa form + iletişim kartları + çalışma saatleri
 
-B) ThemeSettings (single row, controlled customization)
-- PrimaryColorHex (default: #0d6efd)
-- SecondaryColorHex (default: #6c757d)
-- FontFamily (default: system-ui)
-- BorderRadiusPx (default: 12)
-- ContainerMaxWidthPx (default: 1200)
-- ButtonStyle (enum: Solid, Outline)
-- HeaderStyle (enum: Centered, LeftAligned)
-- CardShadow (enum: None, Soft, Medium)
+KALİTE KONTROL LİSTESİ (ÇIKTIDA RAPORLA):
+- Responsive kontrol: xs/sm/md/lg/xl
+- A11y kontrol: label, aria, focus, kontrast
+- UX akış: her sayfada 1 ana CTA var mı?
+- Tutarlılık: spacing/typography aynı mı?
+- Performans: jQuery event delegation, gereksiz plugin yok
 
-Implement a small CSS generation approach:
-- Either write a CSS file at runtime (wwwroot/assets/css/theme.generated.css) OR render CSS variables in the layout head.
-- Keep it safe and simple: prefer CSS variables in layout (no file IO needed).
-- Public theme must reflect these settings.
+ÇALIŞMA ŞEKLİ:
+- Önce repo yapısını tara: mevcut layout, partials, css/js dosyaları, sayfalar.
+- Sonra bir plan çıkar: hangi dosyalar değişecek, hangi yeni bileşenler eklenecek.
+- Ardından kodu uygula: mümkünse mevcut component/partial yapısına uy.
+- Her sayfada en az bir “empty state” ve bir “loading/skeleton” örneği göster (blog liste, case study liste gibi).
+- Her sayfayı “amacına uygun UX” ile tamamla; sadece görsel makyaj yapma.
 
-C) MenuItem (per language)
-- Title, Url, ParentId, DisplayOrder, IsVisible
-
-D) Fixed pages (per language, with ContentGroupId+Language)
-- HomePageContent:
-  - HeroTitle, HeroSubtitle, HeroImagePath
-  - Section1Title, Section1Html
-  - Section2Title, Section2Html
-  - CTA_Title, CTA_Text, CTA_ButtonText, CTA_ButtonUrl
-  - SEO fields (full)
-  - Status + PublishAt (optional; but allow publishing workflow)
-- AboutPageContent:
-  - Title, BodyHtml, ImagePath + SEO + Status/PublishAt
-- ServicesPageContent:
-  - Title, IntroHtml + SEO + Status/PublishAt
-- ContactPageContent:
-  - Title, IntroHtml, Address, Phone, Email, MapEmbedHtml + SEO + Status/PublishAt
-- ReferencesPageContent:
-  - Title, IntroHtml + SEO + Status/PublishAt
-- FaqPageContent:
-  - Title, IntroHtml + SEO + Status/PublishAt
-
-E) Blog
-- BlogPost (translatable)
-  - Title, Slug, Summary, BodyHtml, FeaturedImagePath
-  - CategoryId
-  - Status: Draft/Review/Published
-  - PublishAt nullable
-  - SEO fields (full)
-  - CreatedAt/UpdatedAt
-- BlogCategory (translatable)
-  - Name, Slug, DisplayOrder
-
-F) Product (catalog only)
-- ProductItem (translatable)
-  - Title, Slug, Summary, BodyHtml, FeaturedImagePath
-  - CategoryId
-  - Status + PublishAt
-  - SEO fields
-  - CreatedAt/UpdatedAt
-- ProductCategory (translatable)
-
-G) Portfolio
-- PortfolioItem (translatable)
-  - Title, Slug, Summary, BodyHtml
-  - CategoryId
-  - FeaturedImagePath
-  - Status + PublishAt
-  - SEO fields
-  - CreatedAt/UpdatedAt
-- PortfolioImage
-  - Id, PortfolioItemId, ImagePath, DisplayOrder
-- PortfolioCategory (translatable)
-
-H) Reference items (non-translatable is OK)
-- ReferenceItem:
-  - Name, LogoPath, WebsiteUrl, DisplayOrder, IsVisible
-
-I) FAQ Items (translatable)
-- FaqItem:
-  - ContentGroupId, Language, Question, AnswerHtml, DisplayOrder, IsVisible
-  - CreatedAt/UpdatedAt
-
-J) Redirects (not translatable)
-- RedirectRule:
-  - OldPath, NewPath, StatusCode (301/302), IsActive
-
-K) Contact Form Submissions (not translatable)
-- ContactSubmission:
-  - Name, Email, Message, CreatedAt
-
-SEO fields (reusable owned type or separate class used by entities):
-- MetaTitle, MetaDescription, MetaKeywords(optional)
-- CanonicalUrl(optional)
-- OgTitle, OgDescription, OgImagePath(optional)
-- SchemaJsonLd(optional)
-
-Common translation fields:
-- Id (GUID)
-- ContentGroupId (GUID)
-- Language (tr|en)
-
-Slug uniqueness per language per entity must be enforced (db index).
-
-========================
-5) WORKFLOW (Draft -> Review -> Published)
-========================
-Implement for all translatable content types (including fixed pages):
-- Draft → Review → Published
-- Public site shows only Published
-- PublishAt respected; if future, treat as not published yet.
-- Admin UI: status badges in Turkish (Taslak, İnceleme, Yayında)
-
-========================
-6) SEO (FULL)
-========================
-Implement:
-- Meta tags, Canonical, OG, Twitter card (basic)
-- hreflang
-- sitemap.xml including all published TR/EN routes:
-  - fixed pages
-  - blog posts
-  - products
-  - portfolio items
-- robots.txt
-- JSON-LD:
-  - WebSite + Organization globally (from SiteSettings)
-  - BlogPost -> Article
-  - Product -> Product (minimal)
-  - Portfolio -> CreativeWork (minimal)
-- Clean 404 page.
-
-========================
-7) REDIRECT MANAGER (MIDDLEWARE)
-========================
-- Normalize request path
-- Match RedirectRule.OldPath
-- Apply 301/302
-- Prevent loops/self redirect
-- Admin CRUD for rules
-
-========================
-8) ANALYTICS / TAG MANAGER
-========================
-Admin-managed in SiteSettings:
-- GA field
-- GTM field
-Inject safely in layout:
-- Support either ID or full script; store as string and render with minimal validation/safe allowlist approach.
-
-========================
-9) MEDIA (SAFE + THUMBNAIL)
-========================
-- Upload images to wwwroot/cdn/img/{blog|product|portfolio}
-- GUID filenames
-- Validate content type + extension + size <= 5MB
-- Generate thumbnail (e.g., 400px width) saved with `_thumb`
-- Use SixLabors.ImageSharp
-- Admin screens support upload/select:
-  - Blog featured image
-  - Product featured image
-  - Portfolio featured image + multiple gallery images
-
-========================
-10) SETUP WIZARD (FIRST RUN)
-========================
-Implement a first-run "Kurulum Sihirbazı":
-- If SiteSettings missing or a boolean flag `IsSetupCompleted` is false, redirect ALL requests (except wizard assets) to:
-  - /admin/setup
-- Setup wizard collects:
-  - SiteName
-  - Logo upload
-  - Favicon upload
-  - Footer text
-  - Contact info: Address, Phone, Email, MapEmbedHtml (store inside ContactPageContent TR + EN defaults)
-  - Social links
-  - Analytics/GTM
-  - Theme settings (Primary color, Font family, Border radius, etc.)
-- After save:
-  - set IsSetupCompleted = true
-  - seed any missing content defaults
-  - redirect to /admin (dashboard)
-Wizard UI must be Turkish.
-
-========================
-11) TR -> EN COPY FEATURE (IMPORTANT)
-========================
-Add admin actions that allow copying TR content to EN as a starting point (NO translation).
-Implement for:
-- Fixed page contents
-- Blog posts
-- Products
-- Portfolio items
-- FAQ items
-- Categories
-- Menu items
-
-Rules:
-- Copy by ContentGroupId:
-  - If EN record does not exist for that group, create it by cloning TR.
-  - Generate EN slug by appending "-en" if conflicts (or a deterministic unique algorithm).
-- Provide admin buttons:
-  - "TR İçeriği EN'e Kopyala" (per entity list and/or detail page)
-  - For bulk: "Tüm TR İçeriklerini EN'e Kopyala" in a Tools page
-- Ensure this does NOT publish EN automatically; preserve status as Draft or Review (choose Draft).
-
-========================
-12) ADMIN PANEL (TURKISH ONLY)
-========================
-Create Admin Area with pages:
-- Dashboard
-- Kurulum Sihirbazı (Setup)
-- Site Ayarları
-- Tema Ayarları
-- Menü Yönetimi (tree; reorder with up/down or drag-drop if simple)
-- Sayfalar:
-  - Anasayfa İçeriği
-  - Hakkımızda İçeriği
-  - Hizmetler Sayfası İçeriği
-  - İletişim Sayfası İçeriği
-  - Referanslar Sayfası İçeriği
-  - SSS Sayfası İçeriği
-- SSS Öğeleri
-- Blog Yazıları + Blog Kategorileri
-- Ürünler + Ürün Kategorileri
-- Portfolyo + Portfolyo Kategorileri + Portfolyo Galeri
-- İletişim Formu Mesajları (read-only)
-- Yönlendirmeler (Redirect rules)
-- Araçlar (Tools):
-  - TR -> EN copy bulk operations
-
-Admin UI:
-- Turkish labels, buttons, validation
-- Status badges
-- Pagination
-- TinyMCE or Quill for HTML fields (CDN acceptable)
-- No authentication required
-
-========================
-13) PUBLIC SITE (LIGHT CORPORATE THEME)
-========================
-Create a modern light corporate theme:
-- header: logo, menu, language switch
-- footer: settings + social links
-Routes must be language prefixed:
-- /{lang}/ (home)
-- /{lang}/hakkimizda
-- /{lang}/hizmetler
-- /{lang}/blog
-- /{lang}/blog/{slug}
-- /{lang}/urunler
-- /{lang}/urunler/{slug}
-- /{lang}/portfolyo
-- /{lang}/portfolyo/{slug}
-- /{lang}/referanslar
-- /{lang}/sss
-- /{lang}/iletisim (form)
-
-The public content retrieval must:
-- select by language
-- enforce Published status and PublishAt <= now
-
-Contact form:
-- save submission
-- show success message
-- no email sending required
-
-========================
-14) DB / MIGRATIONS / SEED (MANDATORY)
-========================
-- EF Core migrations included
-- On startup:
-  - apply migrations
-  - seed default content if missing
-- Seed TR + EN:
-  - menus
-  - fixed pages (lorem ipsum)
-  - categories + sample blog/product/portfolio
-  - FAQ items
-- Ensure seed does not override existing client data.
-
-========================
-15) CODE QUALITY
-========================
-- No TODO, no pseudo-code
-- Create all controllers, services, viewmodels, views
-- Implement Slugify helper with Turkish normalization (ı->i, ş->s, ğ->g, ü->u, ö->o, ç->c)
-- Enforce unique slugs per language with indexes + runtime validation
-- Use AsNoTracking for public reads
-- Keep abstractions minimal; no plugin system
-
-========================
-16) OUTPUT FORMAT
-========================
-Actually create the repository files and code. Do not output narrative explanations.
-Short code comments are ok.
+TESLİM:
+- Değiştirilen dosyaları açıkça listele.
+- UI Kit sayfasını ve temel bileşenleri referans alarak tüm sayfaları güncelle.
+- Sonunda kısa bir UX/Tasarım özet raporu yaz.
