@@ -1,0 +1,194 @@
+Sen kıdemli bir .NET mimarı + UI/UX odaklı full-stack mühendissin. Hedef: ASP.NET Core (.NET 10) MVC ile production-grade, sektör bağımsız bir kurumsal website geliştirmek. Çalışma; yalnızca “sayfa koymak” değil, her sayfanın amacı olan, ölçülebilir UX akışı ve kurumsal güven hissi veren bir deneyim üretmek olmalı.
+
+1) TEKNOLOJİ VE KISITLAR (KESİN)
+- Backend: ASP.NET Core (.NET 10) MVC (Razor Views), Areas kullanılabilir.
+- ORM: EF Core (code-first). Migration’lar düzenli.
+- Auth: ASP.NET Core Identity (admin panel için). Public site auth opsiyonel.
+- Frontend: Bootstrap 5.x + jQuery (SPA framework yok).
+- Build: Minimal dış bağımlılık; ağır UI framework yok.
+- i18n: Türkçe varsayılan, çoklu dil altyapısı (en az tr-TR + en-US) hazır.
+- SEO: Server-side render + doğru meta + OpenGraph + sitemap + robots.
+- A11y: WCAG temel uyum (label/aria/focus/kontrast).
+- Performans: Core Web Vitals odaklı; caching, bundling/minify, lazy loading prensipleri.
+
+2) ÜRÜN HEDEFİ / UX PRENSİPLERİ (KESİN)
+- Sektör bağımsız kurumsal tema: finans/sağlık/lojistik/SaaS/üretim vb. uyumlu.
+- Her sayfanın “tek ana amacı” ve 1 ana CTA’sı olacak.
+- Above-the-fold: değer önerisi + ana CTA + ikincil CTA.
+- Dolu dolu ama kalabalık olmayan tasarım: net tipografi, spacing, hiyerarşi.
+- Her liste sayfası: empty state + loading/skeleton state + pagination (veya load more).
+- Formlar: anlık doğrulama UX’i, iyi microcopy, hatalar kullanıcı dostu.
+- Mobil öncelikli ve dokunmatik dostu.
+
+3) BÜTÜN TESLİMATLAR (ÇIKTILAR)
+A) Public Website (kurumsal)
+- Home
+- About/Company
+- Services (liste)
+- Service Detail
+- Industries/Solutions
+- Case Studies (liste)
+- Case Study Detail
+- Blog (liste)
+- Blog Detail
+- Contact (form + iletişim kartları + harita placeholder)
+- Careers (liste) + Job Detail + Apply form
+- FAQ
+- Pricing/Packages (opsiyonel ama altyapı hazır)
+- Legal: Privacy + Terms
+- 404 + 500
+
+B) Admin Panel (Area: Admin)
+- Login/Logout (Identity)
+- Dashboard (toplam içerikler, son içerikler, okunma/lead istatistiği basit)
+- Yönetim CRUD:
+  - Pages (opsiyonel statik sayfalar)
+  - Services
+  - Industries
+  - Case Studies
+  - Blog Posts + Categories + Tags
+  - Job Postings + Applications
+  - Leads/Contact Messages
+  - Media Library (dosya yükleme: görseller, dokümanlar; güvenli)
+  - Site Settings (logo, sosyal linkler, iletişim bilgileri, SEO defaults)
+- Yetkilendirme: Admin/Editor rolleri.
+
+C) UI Kit / Design System sayfası
+- Renk paleti, tipografi scale, spacing
+- Button/link varyantları, form elemanları, alerts, badges, cards, tables
+- Modal, accordion, tabs, breadcrumb, pagination, toast
+- Empty state, skeleton loader (CSS)
+- Navbar/Footer varyantları
+- Kullanım yönergeleri (kısa)
+
+D) Teknik Kalite
+- Global exception handling + error pages (500, 404)
+- Logging: Serilog (console + file) + correlation id
+- Health check endpoint
+- Response caching + output caching (uygun yerlerde)
+- Security headers (CSP önerisi, HSTS, X-Content-Type-Options vb.)
+- Anti-forgery (CSRF) tüm post formlarda
+- Rate limiting (contact form vs.)
+- Validation: FluentValidation veya DataAnnotations (seç, tutarlı uygula)
+- Unit test (en az domain/service seviyesinde örnek) + smoke test önerisi
+- CI pipeline önerisi (GitHub Actions örneği) + publish profili
+
+4) MİMARİ / KATMANLAR
+- Clean-ish yaklaşım ama aşırı mühendislik yok:
+  - Web (MVC): Controllers, Views, ViewModels, Filters
+  - Application: Services (use-case’ler), DTO’lar, validators
+  - Domain: Entities, ValueObjects (gerekiyorsa), enums
+  - Infrastructure: EF Core DbContext, Repositories (gerekiyorsa), file storage, email sender
+- Anti-patternlerden kaçın:
+  - Controller şişirme yok; business logic service’te.
+  - View’a Entity basma yok; ViewModel kullan.
+  - N+1 sorgu yok; include/projection stratejisi.
+- Çoklu ortam (Dev/Staging/Prod) konfigürasyon: appsettings.* + secrets.
+
+5) VERİ MODELİ (MINIMUM)
+Entity’ler (öneri):
+- Service: Id, Title, Slug, Summary, ContentHtml/Markdown, Icon, Order, IsPublished, Seo*
+- Industry: Id, Title, Slug, Summary, Content, Order, IsPublished, Seo*
+- CaseStudy: Id, Title, Slug, ClientName (opsiyonel), Problem, Solution, Results, CoverImage, Gallery, IsPublished, Seo*
+- BlogPost: Id, Title, Slug, Excerpt, Content, CoverImage, PublishedAt, CategoryId, Tags, IsPublished, Seo*
+- Category, Tag (many-to-many)
+- JobPosting: Id, Title, Slug, Location, Type, Description, Requirements, IsPublished, PublishedAt
+- JobApplication: Id, JobPostingId, FullName, Email, Phone, CvFilePath, Message, CreatedAt
+- Lead/ContactMessage: Id, FullName, Email, Phone, Subject, Message, SourcePage, CreatedAt, Status
+- MediaAsset: Id, FileName, ContentType, Size, Path, CreatedAt, UploadedBy
+- SiteSetting: Key, Value (veya strongly typed settings + json)
+
+SEO alanları:
+- SeoTitle, SeoDescription, SeoKeywords (opsiyonel), CanonicalUrl (opsiyonel), OgImage (opsiyonel)
+
+Slug:
+- Unique index; otomatik üretim; Türkçe karakter normalize.
+
+6) ROUTING / URL TASARIMI
+- Kullanıcı dostu URL:
+  - /services
+  - /services/{slug}
+  - /industries
+  - /industries/{slug}
+  - /case-studies
+  - /case-studies/{slug}
+  - /blog
+  - /blog/{slug}
+  - /careers
+  - /careers/{slug}
+  - /contact
+- Admin:
+  - /admin (Area)
+- Sitemap otomatik: yayınlanan içeriklerden üret.
+
+7) VIEW / FRONTEND STANDARTLARI
+- Layout:
+  - Sticky navbar + scroll shadow
+  - Footer kolonları + sosyal + mini açıklama
+- Ortak bileşenler Partial View olarak:
+  - _Navbar, _Footer, _PageHeader, _Breadcrumb, _CtaBand, _TestimonialStrip, _TrustBar, _CardGrid
+- Bootstrap utility-first yaklaşımı; custom css minimum ama kurumsal görünüm için gerekli kısımlar var.
+- jQuery davranışları:
+  - sticky header shadow
+  - smooth anchor scroll
+  - active nav highlight
+  - back-to-top
+  - form validation UX + toast feedback
+  - skeleton loader göster/gizle (demo)
+  - copy-to-clipboard (email/telefon)
+- Görsel placeholder stratejisi: gerçek görsel şart değil; ancak alanlar hazır.
+
+8) İÇERİK (TÜRKÇE KURUMSAL KOPYA)
+- Metinler sektör bağımsız, güven veren, ölçülü iddialı.
+- Her sayfada microcopy düzgün:
+  - form yardım metinleri
+  - hata metinleri
+  - empty state metinleri
+- CTA örnekleri: “Teklif Al”, “Demo İste”, “Bizimle Görüş”, “Detayları İncele”.
+
+9) DOSYA YÜKLEME / GÜVENLİK
+- Upload sadece admin; public upload yok.
+- Dosya türü beyaz liste (jpg/png/webp/pdf).
+- Boyut limiti + antivirüs entegrasyonu opsiyonel not.
+- Path traversal önlemleri; rastgele dosya adı; metadata kaydı.
+- Static file hosting için wwwroot + alt klasör; prod’da CDN opsiyonu not.
+
+10) EMAIL / NOTIFICATION (OPSİYONEL AMA ALTYAPI)
+- Contact form ve Job application:
+  - DB’ye kayıt
+  - Admin’e bildirim email (SMTP config)
+  - Kullanıcıya otomatik “alındı” emaili
+
+11) ÖNBELLEK / PERFORMANS
+- Public içerik sayfaları için output caching / response caching stratejisi:
+  - Blog list/detail, services list/detail, case studies vb.
+- Admin caching yok.
+- DB sorgularında projection + AsNoTracking.
+- Görseller için responsive ve lazy load.
+
+12) GÖZLEMLENEBİLİRLİK
+- Serilog ile request logging
+- CorrelationId middleware
+- Basit metrikler opsiyonel: request süreleri, hata sayıları
+
+13) KALİTE KONTROL RAPORU (ÇIKTIDA SUN)
+- Responsive: xs/sm/md/lg/xl kontrol listesi
+- A11y: label/aria/focus/kontrast
+- SEO: meta, OG, canonical, sitemap, robots
+- Güvenlik: antiforgery, headers, upload kontrolleri
+- Performans: caching, query optimizasyonu
+
+14) ÇALIŞMA ŞEKLİ (UYGULAMA ADIMLARI)
+1) Proje iskeletini oluştur (solution + projeler + klasör yapısı).
+2) EF Core migration + seed data (örnek içerik) ekle.
+3) Public site layout + UI Kit + ana sayfaları üret.
+4) Admin Area + CRUD ekranları + dosya yükleme + settings.
+5) SEO + sitemap + robots.
+6) Hata yönetimi + logging + health check.
+7) Sonunda: değişen/eklenen dosyaları listele, run talimatı ver, kısa bir mimari/UX özet raporu yaz.
+
+NOTLAR
+- Aşırı mühendislik yapma ama üretim kalitesinden ödün verme.
+- Kod okunabilir, test edilebilir, genişlemeye açık olsun.
+- Her sayfa gerçek amaç odaklı UX akışı taşısın; “placeholder sayfa” bırakma.
+- Varsayılan tema: premium kurumsal, sektör bağımsız.
