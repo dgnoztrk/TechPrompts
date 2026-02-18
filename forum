@@ -1,0 +1,160 @@
+Create a .NET 10 (preview) ASP.NET Core Web API solution using Controllers only (NO Minimal API).
+Use Clean Architecture in a single solution. The goal is to generate a compile-ready skeleton with EF Core + PostgreSQL + Identity + Swagger.
+
+Solution / projects (same solution):
+- Luma.Api
+- Luma.Application
+- Luma.Domain
+- Luma.Infrastructure
+- Luma.Contracts
+
+Core requirements:
+- Database: PostgreSQL
+- ORM: EF Core
+- Authentication: ASP.NET Core Identity
+- Registration fields: Email, Phone (required + UNIQUE), FirstName, LastName, Password
+- No email/SMS verification for MVP
+- Auth: JWT access token + refresh token (stored in DB, revocable)
+- Primary focus: Mobile API
+- No API versioning in routes (DO NOT use /api/v1). Use /api/...
+- Swagger integration required (OpenAPI + JWT auth support in Swagger UI)
+
+Domain / Entities:
+- All entities must inherit from BaseEntity
+- BaseEntity fields:
+  - Id (Guid). Prefer Guid7 support if available; otherwise use Guid and keep the design compatible with Guid7.
+  - CreatedAt (DateTimeOffset)
+  - UpdatedAt (DateTimeOffset)
+- CreatedAt/UpdatedAt must be automatically set on insert/update using either:
+  - SaveChanges interceptor, OR
+  - DbContext SaveChanges override
+  (Pick one approach and implement it cleanly.)
+- We are REMOVING Topics entirely. There will be no Topic table and no Topic endpoints.
+- The system is a feed-like forum: API returns latest posts based on filters/pagination.
+- Posts must be admin-approved before becoming visible:
+  - Add IsApproved (bool) on Post.
+- Soft delete: only for Post:
+  - IsDeleted (bool), DeletedAt (DateTimeOffset?)
+
+Minimum tables:
+1) Category
+   - Id, Name, Slug, IsActive, SortOrder, CreatedAt, UpdatedAt
+2) Post
+   - Id, CategoryId, UserId, Title (optional but recommended), Body
+   - IsApproved (bool)
+   - IsDeleted (bool), DeletedAt
+   - CreatedAt, UpdatedAt
+3) Media
+   - Id, OwnerUserId, Url, ContentType, Size, Width, Height, Hash, CreatedAt, UpdatedAt
+4) PostMedia (join table)
+   - PostId, MediaId (composite PK)
+5) RefreshToken
+   - Id, UserId, TokenHash, ExpiresAt, RevokedAt, CreatedAt, UpdatedAt
+
+Indexes (implement with EF Core Fluent API):
+- Posts: (CategoryId, CreatedAt desc, Id desc)  // for feed listing + cursor pagination
+- Posts: (IsApproved, IsDeleted, CreatedAt desc, Id desc) // for the public feed filters
+- Media: (OwnerUserId, CreatedAt desc)
+- Users: NormalizedEmail unique, NormalizedPhoneNumber unique
+
+Pagination:
+- Use cursor-based (keyset) pagination everywhere (NO offset paging).
+- Cursor format must be deterministic and documented:
+  - base64 encode of "{createdAtTicks}|{guid}" or "{createdAtUnixMs}|{guid}"
+- When listing posts, return:
+  - items
+  - nextCursor (null if no more)
+  - hasMore (bool)
+
+Caching:
+- Add a simple cache layer using IMemoryCache (no Redis for now).
+- Cache only:
+  - GET /api/categories (TTL 10-30 minutes)
+  - GET /api/posts (feed) (TTL short, e.g., 15-60 seconds)
+- Implement cache key strategy and invalidation:
+  - On Post create/update/delete/approval change, invalidate feed cache keys affected.
+  - On Category change, invalidate categories cache.
+- Do not over-cache; keep invalidation straightforward.
+
+Media upload (IMPORTANT):
+- API receives upload requests, but the actual upload must be delegated to my own CDN infrastructure.
+- In Infrastructure, define:
+  - interface IStorageService
+  - method Task<string> UploadToCdnAsync(Stream content, string fileName, string contentType, CancellationToken ct)
+- The method body must be EMPTY / TODO (return placeholder or throw NotImplementedException). I will implement it later.
+- The API must still create a Media record and return the final URL string returned by UploadToCdnAsync.
+
+Validation + error handling:
+- Add request validation using FluentValidation (preferred) OR DataAnnotations (choose one and be consistent).
+- Add global exception handling middleware and return ProblemDetails responses.
+- Add consistent error response for validation failures.
+
+Contracts:
+- Keep all request/response DTOs in Luma.Contracts.
+- Luma.Api should use Contracts DTOs directly (no internal API DTO duplicates).
+
+Application layer:
+- Implement use-case services (or CQRS handlers if you choose MediatR) for:
+  - Register user
+  - Login
+  - Refresh token
+  - Logout / revoke refresh token
+  - Get categories
+  - Create post
+  - Get feed posts (with filters + cursor paging)
+  - Edit post
+  - Soft delete post
+  - Upload media (create Media record)
+- Keep business rules in Application/Domain, not in Controllers.
+
+API endpoints (Controllers; no versioning):
+AuthController:
+- POST /api/auth/register
+- POST /api/auth/login   (login via phone + password)
+- POST /api/auth/refresh
+- POST /api/auth/logout
+
+CategoriesController:
+- GET /api/categories
+
+PostsController:
+- GET /api/posts?categoryId=&cursor=&limit=&includeUnapproved=false
+  - Default behavior for mobile clients: only IsApproved=true and IsDeleted=false
+  - includeUnapproved should require an admin/moderator role (scaffold policy only; admin UI comes later)
+- POST /api/posts
+- GET /api/posts/{id}
+- PATCH /api/posts/{id}
+- DELETE /api/posts/{id} (soft delete)
+
+ModerationController (scaffold for future admin; still implement endpoints):
+- POST /api/moderation/posts/{id}/approve   (sets IsApproved=true)
+- POST /api/moderation/posts/{id}/reject    (sets IsApproved=false or soft delete; choose one and document)
+
+MediaController:
+- POST /api/media (multipart/form-data)
+  - Calls IStorageService.UploadToCdnAsync(...)
+  - Creates Media record and returns MediaDto (including Url)
+
+Swagger:
+- Add SwaggerGen + SwaggerUI.
+- Configure JWT Bearer security scheme so I can authorize in Swagger UI.
+
+Program.cs:
+- Configure:
+  - Controllers
+  - Swagger
+  - EF Core DbContext with Npgsql
+  - Identity with custom user entity extending IdentityUser<Guid> (use Guid keys)
+  - JWT auth + authorization policies (Member, Moderator, Admin roles as placeholders)
+  - DI for Application services and Infrastructure implementations
+  - ProblemDetails and exception middleware
+  - CORS (allow mobile app; configure permissive dev policy)
+
+Output expectations:
+Produce complete, compilable code skeleton:
+- full solution structure
+- key classes (BaseEntity, entities, DbContext, interceptor/override for timestamps, Identity user, token service, cursor helper, cache service, storage service interface, controllers, contracts DTOs, validators)
+- appsettings.json sample with placeholders (Postgres connection string, JWT settings)
+- EF Core migrations commands
+Do NOT use Minimal API. Use Controllers + attribute routing.
+Do NOT add API versioning routes or libraries.
