@@ -1,0 +1,189 @@
+You are building an Expo React Native app (TypeScript) named “Luma” (forum client). Phase 1 is OFFLINE ONLY with dummy data and fake auth. Do NOT call any real API yet.
+
+Primary goals (Phase 1):
+- Premium UI (“albeni”), polished layout, subtle motion, haptics, bottom-sheets, great typography.
+- Public reading without login (feed + post detail + categories).
+- Writing requires login (create/edit/delete) BUT auth is fake.
+- Theme: default LIGHT with Dark toggle; persist theme selection locally.
+- Architecture that makes Phase 2 API integration a drop-in change (repository/adapters).
+
+Tech stack for Phase 1:
+- Expo SDK latest stable + TypeScript
+- expo-router navigation
+- nativewind styling + internal UI kit
+- zustand for session + theme
+- @tanstack/react-query for data access even in offline mode (so Phase 2 swaps data source easily)
+- @shopify/flash-list for feed performance
+- dayjs for relative time
+- @gorhom/bottom-sheet for category picker and action sheets
+- react-native-reanimated (subtle animations)
+- expo-haptics (haptics)
+- expo-linear-gradient (tasteful brand gradients)
+- expo-image (images)
+- AsyncStorage for persisting theme + fake session
+
+IMPORTANT: No moderation features in mobile.
+
+========================================
+PHASE 1 DATA MODEL (Dummy)
+========================================
+Create realistic dummy DTOs:
+- Category { id, name, slug? }
+- Post {
+    id, categoryId, categoryName,
+    title, body,
+    author { id, displayName, avatarUrl? },
+    createdAt (ISO string),
+    media: { id, url }[],
+    isApproved (bool),
+    ownerUserId (string)
+  }
+
+Dummy logic:
+- Public feed shows only isApproved=true posts.
+- When a logged-in user creates a post:
+  - Store it in local dummy store with isApproved=false.
+  - Show success state: “Gönderin alındı, moderatör onayı bekleniyor.”
+  - DO NOT show it in public feed (since not approved).
+- However, in Profile add a “Benim Gönderilerim” section:
+  - show all posts where ownerUserId == currentUserId, including pending.
+  - pending posts should have a “Onay bekliyor” badge.
+
+Fake auth:
+- Login/register screens exist.
+- Accept any non-empty phone + password.
+- On login/register:
+  - create a fake user { id: uuid, phone, displayName } and store in zustand + AsyncStorage.
+- Logout clears it.
+
+Auth gating:
+- Feed and Post Details are public.
+- Create and Profile require login.
+- If unauth user tries to access Create/Profile:
+  - redirect to login and return to intended destination after login.
+
+========================================
+ALBENI / PREMIUM UX REQUIREMENTS
+========================================
+Implement:
+- Light theme default: warm off-white background, subtle card tint, refined shadows.
+- Dark theme: deep charcoal with controlled accent.
+- Accent palette: Luma Violet + secondary Teal/Cyan (use sparingly).
+- Brand mark: a simple gradient circle logo in header/auth screens.
+- Micro-animations:
+  - Pressable cards scale to 0.98 + shadow changes
+  - Smooth toast entrance/exit
+  - Chip selection animation
+- Haptics:
+  - Light: chip select, theme toggle, successful submit
+  - Medium: delete confirm
+- Bottom-sheet:
+  - category picker in Feed and Create
+  - actions sheet for post options (edit/delete) if owner
+
+========================================
+SCREENS (Phase 1)
+========================================
+Navigation (expo-router):
+- Auth stack: /(auth)/login, /(auth)/register
+- Tabs: /(tabs)/feed, /(tabs)/create, /(tabs)/profile
+- Post details: /post/[id]
+- Post edit: /post/[id].edit
+
+1) Feed (public)
+- Header with “Luma” + subtle gradient accent
+- Category filter chips + “Kategori” button opening bottom sheet
+- FlashList feed of approved posts only
+- Pull-to-refresh (simulated)
+- Infinite pagination (simulate cursor by chunking dummy list)
+- Skeleton + EmptyState
+
+2) Post Details (public)
+- show full post + media gallery
+- If logged-in and owner:
+  - show Edit + Delete
+- If post is pending (isApproved=false) and owner is viewing from Profile list:
+  - show “Onay bekliyor” badge
+
+3) Create Post (requires login)
+- Form: category, title, body, optional media picker
+- Media picker selects local images (do not upload)
+- On submit:
+  - add post as pending to dummy store
+  - show success modal/screen: waiting approval
+  - haptic light + toast
+
+4) Edit Post (requires login + owner)
+- Allow editing title/body/category/media (local)
+- Save updates in dummy store
+- toast “Güncellendi”
+
+5) Delete Post (requires login + owner)
+- Confirmation modal (medium haptic)
+- Delete from dummy store
+- Navigate back + toast
+
+6) Profile (requires login)
+- user card (displayName/phone)
+- theme toggle (persisted)
+- “Benim Gönderilerim” list:
+  - shows approved + pending
+  - pending has badge and is visible only here
+- logout
+
+========================================
+ARCHITECTURE (Designed for Phase 2 API integration)
+========================================
+
+/app
+  /(auth)/login.tsx
+  /(auth)/register.tsx
+  /(tabs)/_layout.tsx
+  /(tabs)/feed/index.tsx
+  /(tabs)/create/index.tsx
+  /(tabs)/profile/index.tsx
+  /post/[id].tsx
+  /post/[id].edit.tsx
+  _layout.tsx
+
+/src
+  /data
+    dummyDb.ts           // in-memory + persisted storage (posts, categories)
+    seeds.ts             // initial dummy data
+  /repositories
+    postsRepo.ts         // interface + dummy implementation
+    categoriesRepo.ts
+    authRepo.ts          // fake auth
+  /stores
+    authStore.ts         // zustand + persistence
+    themeStore.ts        // zustand + AsyncStorage persistence
+  /queries
+    keys.ts
+    useFeed.ts
+    usePost.ts
+    useCategories.ts
+    useMyPosts.ts
+  /ui
+    theme.ts             // tokens for light/dark
+    primitives/*         // Button, Input, Card, Tag, Avatar, Skeleton, Toast, Modal, BottomSheet
+  /lib
+    format.ts
+    uuid.ts
+    errors.ts
+    logger.ts
+
+Key rule:
+- UI uses repositories via react-query hooks.
+- For Phase 2, we will swap dummy repositories with API repositories without rewriting screens.
+
+========================================
+DELIVERABLES
+========================================
+- Full working Expo codebase with the structure above.
+- Runs offline with dummy data.
+- Premium visuals + motion + haptics.
+- Theme persisted.
+- Fake login/register works and gates Create/Profile properly.
+- README explaining Phase 1 and how Phase 2 will replace repositories with API adapters.
+
+Start coding now and output the complete codebase.
