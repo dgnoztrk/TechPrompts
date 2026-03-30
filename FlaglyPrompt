@@ -1,0 +1,1034 @@
+# FLAGLY — Feature Flag Management System
+# .NET Core 10 MVC | PostgreSQL | Redis | ASP.NET Core Identity
+# Cursor: Generate the COMPLETE solution. No placeholders. No "TODO" comments.
+# Do not generate any test projects or test files.
+# Do NOT use SignalR anywhere in this project.
+
+═══════════════════════════════════════════════════════════════
+## PROJECT NAME & SOLUTION STRUCTURE
+═══════════════════════════════════════════════════════════════
+
+Solution name: Flagly
+Application display name: "Flagly"
+
+Flagly/
+├── src/
+│   ├── Flagly.Web/
+│   │   ├── Controllers/
+│   │   │   ├── AccountController.cs
+│   │   │   ├── DashboardController.cs
+│   │   │   ├── ProjectsController.cs
+│   │   │   ├── FlagsController.cs
+│   │   │   └── ApiController.cs
+│   │   ├── Views/
+│   │   │   ├── Shared/
+│   │   │   │   ├── _Layout.cshtml
+│   │   │   │   ├── _Sidebar.cshtml
+│   │   │   │   ├── _Topbar.cshtml
+│   │   │   │   └── _Notifications.cshtml
+│   │   │   ├── Account/
+│   │   │   │   └── Login.cshtml
+│   │   │   ├── Dashboard/
+│   │   │   │   └── Index.cshtml
+│   │   │   ├── Projects/
+│   │   │   │   ├── Index.cshtml
+│   │   │   │   ├── Detail.cshtml
+│   │   │   │   ├── Create.cshtml
+│   │   │   │   └── Settings.cshtml
+│   │   │   └── Flags/
+│   │   │       ├── Detail.cshtml
+│   │   │       └── Create.cshtml
+│   │   ├── wwwroot/
+│   │   │   ├── css/
+│   │   │   │   └── flagly.css
+│   │   │   └── js/
+│   │   │       └── flagly.js
+│   │   ├── Middleware/
+│   │   │   └── ApiKeyMiddleware.cs
+│   │   └── Program.cs
+│   │
+│   ├── Flagly.Core/
+│   │   ├── Entities/
+│   │   ├── Interfaces/
+│   │   ├── Services/
+│   │   ├── DTOs/
+│   │   └── Evaluation/
+│   │
+│   ├── Flagly.Infrastructure/
+│   │   ├── Persistence/
+│   │   ├── Caching/
+│   │   ├── Repositories/
+│   │   └── Services/
+│   │
+│   └── Flagly.SDK/
+│       ├── FlaglyClient.cs
+│       ├── FlaglyContext.cs
+│       ├── FlaglyOptions.cs
+│       ├── IFlaglyService.cs
+│       ├── FlaglyBackgroundService.cs
+│       └── ServiceCollectionExtensions.cs
+│
+└── Flagly.sln
+
+═══════════════════════════════════════════════════════════════
+## CONNECTION STRINGS & CONFIGURATION
+═══════════════════════════════════════════════════════════════
+
+appsettings.json (Flagly.Web):
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=flagly;Username=postgres;Password=8d998B46"
+  },
+  "Redis": {
+    "ConnectionString": "localhost:6379,password=1234"
+  },
+  "Flagly": {
+    "BaseUrl": "https://localhost:7001",
+    "CacheTtlSeconds": 30
+  },
+  "Serilog": {
+    "MinimumLevel": "Information"
+  }
+}
+
+═══════════════════════════════════════════════════════════════
+## DATABASE — ENTITIES (EF Core 10, Npgsql)
+═══════════════════════════════════════════════════════════════
+
+### ApplicationUser : IdentityUser
+- FullName (string)
+- CreatedAt (DateTime UTC)
+
+### Project
+- Id (Guid, PK, gen_random_uuid())
+- Name (string, required, max 100)
+- Description (string, max 500)
+- Slug (string, unique, auto-generated lowercase-hyphen from Name)
+- OwnerId (string, FK → ApplicationUser.Id)
+- CreatedAt / UpdatedAt (DateTime UTC)
+- IsArchived (bool, default false)
+
+### ProjectEnvironment
+- Id (Guid, PK)
+- ProjectId (Guid, FK → Project)
+- Name (string) — user defines: "development", "staging", "production" etc.
+- SortOrder (int)
+- Color (string) — hex from predefined palette:
+    development → #6E7CF8
+    test        → #2ECC71
+    staging     → #F5A623
+    production  → #E74C3C
+    default     → #9B59B6
+- ApiKey (string, Guid.NewGuid().ToString("N"), unique index)
+- CreatedAt (DateTime UTC)
+
+### FeatureFlag
+- Id (Guid, PK)
+- ProjectId (Guid, FK → Project)
+- Name (string, slug format: [a-z0-9-] only, unique per project)
+- Description (string, max 500)
+- FlagType (enum): Release=0, Operational=1, Permission=2
+- CreatedByUserId (string, FK → ApplicationUser)
+- CreatedAt / UpdatedAt (DateTime UTC)
+- IsArchived (bool, default false)
+- LastSeenAt (DateTime? UTC)
+
+### FeatureFlagEnvironmentState
+- Id (Guid, PK)
+- FeatureFlagId (Guid, FK)
+- ProjectEnvironmentId (Guid, FK)
+- IsEnabled (bool, default false)
+- EnabledForUserIds (string) — comma-separated
+- EnabledForUserEmails (string) — comma-separated
+- UserMatchMode (enum): UserId=0, UserEmail=1, Both=2
+- RolloutPercentage (int, 0-100, default 100)
+- UpdatedAt (DateTime UTC)
+- UpdatedByUserId (string, FK)
+
+### ProjectMember
+- Id (Guid, PK)
+- ProjectId (Guid, FK → Project)
+- UserId (string, FK → ApplicationUser)
+- Role (enum): Owner=0, Member=1
+- AddedAt (DateTime UTC)
+- AddedByUserId (string)
+- Unique index on (ProjectId, UserId)
+
+### FlagAuditLog
+- Id (Guid, PK)
+- FeatureFlagId (Guid, FK)
+- ProjectEnvironmentId (Guid, FK)
+- PerformedByUserId (string)
+- ChangeType (enum): Created, Enabled, Disabled, StrategyUpdated, Archived
+- PreviousValueJson (string)
+- NewValueJson (string)
+- CreatedAt (DateTime UTC)
+
+### FlagEvaluationMetric
+- Id (Guid, PK)
+- FeatureFlagId (Guid, FK)
+- ProjectEnvironmentId (Guid, FK)
+- EvaluatedAt (DateTime UTC) — truncated to 5-minute bucket
+- TrueCount (long)
+- FalseCount (long)
+
+═══════════════════════════════════════════════════════════════
+## IDENTITY & AUTHENTICATION
+═══════════════════════════════════════════════════════════════
+
+- ASP.NET Core Identity with ApplicationUser
+- NO registration page. Login only at /account/login
+- All routes except /account/login require [Authorize]
+- After login → redirect to /dashboard
+- Logout at /account/logout (POST)
+- Seed admin on startup if no users exist:
+    Email: admin@flagly.io
+    Password: Flagly@2025!
+    FullName: Admin
+
+═══════════════════════════════════════════════════════════════
+## CACHING — REDIS ONLY, NO SIGNALR
+═══════════════════════════════════════════════════════════════
+
+IMPORTANT: There is NO SignalR in this project. Do not reference or import
+Microsoft.AspNetCore.SignalR anywhere.
+
+Cache strategy: Cache-aside with Redis. TTL = 30 seconds (configurable).
+SDK polls every 30 seconds → changes reflect within one poll cycle.
+
+Cache key pattern:
+  "flagly:flags:{projectId}:{environmentApiKey}" → JSON of flag list
+  "flagly:project:{projectSlug}" → project + environments metadata
+
+IFlagCacheService interface (Flagly.Infrastructure/Caching/):
+  Task<List<FeatureFlagDto>?> GetFlagsAsync(string cacheKey);
+  Task SetFlagsAsync(string cacheKey, List<FeatureFlagDto> flags, TimeSpan ttl);
+  Task InvalidateAsync(string cacheKey);
+  Task InvalidateByProjectIdAsync(Guid projectId);
+
+RedisFlagCacheService implements IFlagCacheService:
+- Use StackExchange.Redis IConnectionMultiplexer
+- Serialize with System.Text.Json
+- On Redis failure: catch exception, log with Serilog, return null (fallback to DB)
+- InvalidateByProjectIdAsync: use Redis SCAN to find all keys matching
+  "flagly:flags:{projectId}:*" and delete them
+
+When a flag toggle changes via web UI:
+1. Save to DB
+2. Call InvalidateByProjectIdAsync
+3. Next SDK poll (within 30s) picks up fresh data from DB, re-caches
+
+═══════════════════════════════════════════════════════════════
+## EVALUATION LOGIC
+═══════════════════════════════════════════════════════════════
+
+Flagly.Core/Evaluation/FlagEvaluator.cs
+
+bool Evaluate(FeatureFlagEnvironmentState state, FlaglyContext context):
+1. If state.IsEnabled == false → return false
+2. If EnabledForUserIds has entries AND UserMatchMode is UserId or Both:
+   - If context.UserId NOT in list → return false
+3. If EnabledForUserEmails has entries AND UserMatchMode is UserEmail or Both:
+   - If context.UserEmail NOT in list → return false
+4. If RolloutPercentage < 100:
+   - hash = Math.Abs(MurmurHash3(flagName + ":" + (context.UserId 
+             ?? context.UserEmail ?? context.SessionId ?? "anon")))
+   - if hash % 100 >= RolloutPercentage → return false
+5. return true
+
+Implement MurmurHash3 (32-bit, seed 0) as a private static method in FlagEvaluator.
+
+═══════════════════════════════════════════════════════════════
+## SDK (Flagly.SDK — classlib in solution)
+═══════════════════════════════════════════════════════════════
+
+FlaglyOptions:
+  string ServerUrl
+  string ApiKey
+  string AppName
+  int PollingIntervalSeconds = 30
+  bool SendMetrics = true
+  bool DefaultWhenUnavailable = false  ← returned if flag not found or service down
+
+IFlaglyService:
+  bool IsEnabled(string flagName);
+  bool IsEnabled(string flagName, string userId);
+  bool IsEnabled(string flagName, FlaglyContext context);
+  Task RefreshAsync(CancellationToken ct = default);
+
+FlaglyContext:
+  string? UserId
+  string? UserEmail
+  string? SessionId
+  Dictionary<string, string> Properties
+
+Usage (must work exactly like this):
+  // Simple:
+  if (flagly.IsEnabled("awesome-feature")) { ... }
+
+  // With userId:
+  if (flagly.IsEnabled("awesome-feature", currentUser.Id)) { ... }
+
+  // With context:
+  var ctx = new FlaglyContext { UserId = "u1", UserEmail = "u@co.com" };
+  if (flagly.IsEnabled("awesome-feature", ctx)) { ... }
+
+SDK internals:
+- FlaglyBackgroundService : BackgroundService
+  - Startup: call GET /api/client/features, store in ConcurrentDictionary<string, FlagDto>
+  - Poll every PollingIntervalSeconds
+  - On failure: log warning, keep stale cache
+- IsEnabled() is synchronous, zero latency — reads from ConcurrentDictionary only
+  Never make HTTP calls inside IsEnabled()
+- Metrics: buffer in ConcurrentQueue, flush every 10s via POST /api/client/metrics
+- Auto-inject userId from IHttpContextAccessor if registered in DI
+
+Registration:
+  builder.Services.AddFlaglySdk(options => {
+      options.ServerUrl = config["Flagly:ServerUrl"];
+      options.ApiKey = config["Flagly:ApiKey"];
+      options.AppName = "my-app";
+  });
+
+═══════════════════════════════════════════════════════════════
+## REST API ENDPOINTS (inside Flagly.Web/Controllers/ApiController.cs)
+═══════════════════════════════════════════════════════════════
+
+Auth: custom ApiKeyMiddleware reads header "X-Api-Key",
+matches ProjectEnvironment.ApiKey, injects into HttpContext.Items["Environment"].
+Unauthorized → 401 JSON response.
+
+GET /api/client/features
+  Header: X-Api-Key: {apiKey}
+  Flow: check Redis cache → if miss, load from DB → cache with 30s TTL → return
+  Response:
+  {
+    "environment": "production",
+    "projectSlug": "my-project",
+    "fetchedAt": "...",
+    "flags": [{
+      "name": "awesome-feature",
+      "isEnabled": true,
+      "description": "...",
+      "type": "Release",
+      "enabledForUserIds": ["u1"],
+      "enabledForUserEmails": [],
+      "userMatchMode": "UserId",
+      "rolloutPercentage": 100
+    }]
+  }
+
+POST /api/client/metrics
+  Header: X-Api-Key: {apiKey}
+  Body: { "flagName": "...", "wasEnabled": true, "userId": "u1" }
+  Action: upsert FlagEvaluationMetric (5-min bucket), update flag.LastSeenAt
+
+═══════════════════════════════════════════════════════════════
+## UI DESIGN — DARK THEME, METRONIC-INSPIRED
+═══════════════════════════════════════════════════════════════
+
+IMPORTANT: Full dark theme. Clean, modern, professional.
+Inspired by Metronic admin theme aesthetic.
+No Bootstrap CDN. No Tailwind. Custom CSS only in wwwroot/css/flagly.css.
+Use CSS custom properties for all colors.
+Inter font from Google Fonts CDN.
+Vanilla JS only in wwwroot/js/flagly.js — no jQuery, no npm.
+
+### CSS Custom Properties (define in :root)
+--bg-page:         #13131a
+--bg-card:         #1e1e2d
+--bg-card-hover:   #252536
+--bg-sidebar:      #1a1a27
+--bg-input:        #2b2b40
+--bg-topbar:       #1e1e2d
+
+--border-color:    #2b2b40
+--border-subtle:   #323248
+
+--text-primary:    #e8e8f0
+--text-secondary:  #787896
+--text-muted:      #4b4b6b
+
+--accent:          #6e7cf8
+--accent-hover:    #5a68f5
+--accent-muted:    rgba(110,124,248,0.15)
+
+--success:         #2ecc71
+--warning:         #f5a623
+--danger:          #e74c3c
+--info:            #3498db
+
+--success-muted:   rgba(46,204,113,0.15)
+--warning-muted:   rgba(245,166,35,0.15)
+--danger-muted:    rgba(231,76,60,0.15)
+
+--radius-sm:       6px
+--radius-md:       10px
+--radius-lg:       14px
+
+--shadow-card:     0 2px 12px rgba(0,0,0,0.4)
+--sidebar-width:   260px
+--topbar-height:   64px
+
+--font-sans:       'Inter', system-ui, sans-serif
+
+### Layout Structure
+Fixed sidebar (left, 260px wide) + fixed topbar (top, 64px) + scrollable content area.
+
+body {
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+}
+
+### Sidebar (_Sidebar.cshtml partial)
+Background: var(--bg-sidebar)
+Border-right: 1px solid var(--border-color)
+Position: fixed, full height
+
+Contents (top to bottom):
+1. LOGO AREA (height 64px, border-bottom):
+   - Flagly "F" icon (SVG, filled accent color) + "Flagly" text in white, font-weight 700
+   
+2. NAV SECTION label: "NAVIGATION" (text-muted, font-size 10px, letter-spacing 1.5px, uppercase, px 20px)
+
+3. Nav items — each item:
+   Background on hover: var(--accent-muted)
+   Active item: left border 3px var(--accent), background var(--accent-muted), text white
+   Padding: 10px 20px
+   Border-radius: var(--radius-sm) on right side
+   Icon (SVG, 18px) + label text (14px, font-weight 500)
+   
+   Items:
+   • Dashboard (grid/squares icon)
+   • Projects (folder icon)
+
+4. DIVIDER (1px border, mx 20px)
+
+5. SECTION label: "ACCOUNT"
+
+6. Nav items:
+   • Settings (gear icon) → /settings
+   • Logout (arrow-right-from-bracket icon) → POST /account/logout
+
+7. BOTTOM of sidebar:
+   Current user card (fixed to bottom):
+   - Avatar circle (initials, bg accent-muted, text accent, 36px)
+   - FullName (14px, text-primary)
+   - Email (12px, text-muted)
+
+All sidebar icons: inline SVG, 18×18, currentColor stroke
+
+Responsive: on < 768px, sidebar hidden by default, toggle button in topbar shows/hides it
+via CSS class .sidebar-open on body. Overlay background when open on mobile.
+
+### Topbar (_Topbar.cshtml partial)
+Background: var(--bg-topbar)
+Border-bottom: 1px solid var(--border-color)
+Height: 64px, fixed top, left: var(--sidebar-width)
+
+Contents:
+LEFT: Breadcrumb (page name / sub-page if applicable)
+      Style: text-muted > separator "›" > text-primary for current page
+
+RIGHT:
+- Notification bell icon (SVG) — static, no functionality needed
+- Vertical divider
+- User avatar circle (initials) + FullName + dropdown chevron
+  Dropdown on click: shows "Profile" and "Logout" options
+
+### Content Area
+margin-left: var(--sidebar-width)
+padding-top: var(--topbar-height)
+padding: calc(var(--topbar-height) + 28px) 28px 28px 28px
+
+### Card Component
+background: var(--bg-card)
+border: 1px solid var(--border-color)
+border-radius: var(--radius-lg)
+padding: 24px
+box-shadow: var(--shadow-card)
+
+### Stat Cards (used on Dashboard)
+Each stat card: icon circle (bg accent-muted) + metric number (28px bold) + label (text-muted)
+Display in a 4-column grid
+
+### Buttons
+Primary: bg var(--accent), color white, border-radius var(--radius-sm), 
+         px 16px py 8px, font-weight 600, font-size 13px
+         Hover: var(--accent-hover), transform translateY(-1px)
+
+Secondary: bg var(--bg-input), color var(--text-primary), border 1px solid var(--border-subtle)
+
+Danger: bg var(--danger-muted), color var(--danger), border 1px solid var(--danger)
+
+### Badges / Pills
+Small pill: border-radius 20px, px 10px, py 3px, font-size 11px, font-weight 600
+Environment badges use their color as background-color at 20% opacity + text at full color
+
+### Toggle Switch (CSS only, JS for API call)
+.toggle-switch: 44px × 24px, border-radius 12px
+OFF: background var(--border-color)
+ON: background var(--accent)
+Knob: 18px circle, white, transitions 0.2s
+Input checkbox hidden, label styled as toggle
+
+### Table Style
+Full-width, border-collapse
+Header row: bg var(--bg-page), text var(--text-muted), font-size 11px uppercase, 
+            letter-spacing 1px, border-bottom 1px solid var(--border-color)
+Body rows: border-bottom 1px solid var(--border-subtle)
+           hover: bg var(--bg-card-hover)
+           transition: background 0.15s
+
+### Form Inputs
+background: var(--bg-input)
+border: 1px solid var(--border-subtle)
+color: var(--text-primary)
+border-radius: var(--radius-sm)
+padding: 9px 14px
+font-size: 14px
+Focus: border-color var(--accent), outline none, box-shadow 0 0 0 3px var(--accent-muted)
+
+### Modal
+Overlay: rgba(0,0,0,0.65), backdrop-filter blur(4px)
+Modal box: bg var(--bg-card), border var(--border-color), radius var(--radius-lg), 
+           max-width 520px, shadow 0 20px 60px rgba(0,0,0,0.6)
+Header: title (18px bold) + close X button
+Footer: action buttons right-aligned
+
+═══════════════════════════════════════════════════════════════
+## PAGE IMPLEMENTATIONS
+═══════════════════════════════════════════════════════════════
+
+### Login Page (/account/login)
+No sidebar, no topbar — standalone centered page.
+Full-height page, background: var(--bg-page) with subtle radial gradient 
+  (circle at 30% 30%, rgba(110,124,248,0.08) 0%, transparent 60%)
+
+Center card (380px wide):
+- Flagly logo SVG + "Flagly" text (centered, mb 32px)
+- "Welcome back" heading (24px, bold)
+- "Sign in to your account" subtext (text-muted)
+- Email input (full width, label above)
+- Password input (full width, label above, show/hide toggle button)
+- "Sign In" primary button (full width)
+- On error: red alert box below form
+
+### Dashboard (/dashboard)
+Page title: "Dashboard"
+
+Row 1 — 4 stat cards:
+  1. Total Projects (folder icon, accent color)
+  2. Total Flags (flag icon, success color)
+  3. Active Environments (layers icon, warning color)
+  4. Flags in Production (shield icon, danger color)
+     Count = flags with IsEnabled=true in any env named "production"
+
+Row 2 — Recent Activity (full width card):
+  Title: "Recent Activity"
+  Table with columns: User | Action | Flag | Environment | Project | Time
+  Show last 30 FlagAuditLog entries across all projects user has access to
+  Time: relative format ("2 minutes ago", "3 hours ago", "2 days ago")
+  Each row has a colored dot for ChangeType:
+    Enabled → success, Disabled → danger, Created → accent, Archived → warning
+
+### Projects List (/projects)
+Page title: "Projects"
+Right side of title bar: "New Project" primary button
+
+Grid (3 columns, responsive to 2 then 1):
+Each project card:
+  - Project name (18px, bold, link to detail)
+  - Description (text-muted, 2-line clamp)
+  - Row of environment badges (colored pills)
+  - Footer: "{N} flags" + owner avatar + owner name + "Open →" link
+
+### Project Detail (/projects/{slug})
+This is the core page. Match Unleash screenshot layout closely.
+
+TOP: Project name (28px bold) + description + edit/delete icons (top right)
+
+TABS: Overview | Environments | Access | Activity
+(Tab switching via CSS/JS — no page reload needed, use URL hash or simple show/hide)
+
+--- OVERVIEW TAB ---
+
+Two-column layout:
+LEFT COLUMN (260px, sticky):
+  Card 1 — Health widget:
+    Donut chart (pure SVG, 80px diameter):
+      - Calculate: healthPct = (flags seen in last 7 days + flags < 7 days old) / total * 100
+      - Filled arc: var(--accent), unfilled: var(--border-color)
+      - Center text: "X%" (16px bold)
+    Below chart:
+      "{N}% health" (text-primary, 16px bold)
+      "{N} toggles in total" (text-muted, 13px)
+      "{N} stale toggles" (danger color if > 0, else muted)
+      
+  Card 2 — Team:
+    Owner row: avatar circle + "{FullName}" bold + "is the project owner" muted
+    Member avatars: up to 4 circles in a row, overlap slightly (margin-left -8px)
+      If > 4 members: "+N more" circle in same style
+    "add member" link (accent color, 13px) → opens Add Member modal
+
+RIGHT COLUMN (flex-1):
+  Header row:
+    "Feature toggles ({N})" (20px bold)
+    RIGHT: search input (220px, dark) + "New feature toggle" button
+
+  Feature flags table:
+    Columns: Seen | Type | Feature toggle name | Created on | [env1] | [env2] | ... | ⋮
+    
+    SEEN column:
+      - Never evaluated: "-" (text-muted)
+      - < 1 hour: "{N}s" or "{N}m" — green badge (bg success-muted, text success)
+      - 1h to 7d: "{N}h" or "{N}D" — orange badge (bg warning-muted, text warning)
+      - > 7 days: "{N}D" — red badge (bg danger-muted, text danger) = stale
+      
+    TYPE column:
+      Icons (SVG 16px, text-muted):
+      Release → circular arrows (↻)
+      Operational → power button (⏻)
+      Permission → wrench (🔧)
+      Tooltip on hover showing type name
+      
+    FLAG NAME column:
+      Clickable link (accent color) → /projects/{slug}/flags/{name}
+      If archived: strikethrough + muted color
+      
+    CREATED ON: "DD/MM/YYYY" format
+    
+    ENVIRONMENT COLUMNS (dynamic, one per env):
+      Column header: env name (pill with env color)
+      Cell: toggle switch showing IsEnabled state for that environment
+      On toggle click → AJAX POST /projects/{slug}/flags/{name}/toggle
+        Body: { environmentId: "...", enabled: true/false }
+        On success: update toggle visually
+        On error: revert toggle + show toast notification
+    
+    ACTION column (⋮ kebab menu dropdown):
+      - "View Details" → flag detail page
+      - "View History" → activity tab filtered to this flag
+      - divider
+      - "Archive" → confirm modal → archive action (danger color)
+
+--- ENVIRONMENTS TAB ---
+
+Table: Color dot | Name | API Key | Created | Actions
+
+API Key cell: show first 8 chars + "••••••••••••••" + copy icon button
+  On copy click: copy full key to clipboard, show "Copied!" tooltip
+
+"Add Environment" button → modal:
+  Fields: Name (text, required), Color (radio/button group showing color swatches)
+  On submit → create environment → show ApiKey in success modal:
+    "Your API Key (shown once): [FULL KEY] [Copy button]"
+    Warning: "Save this key now. It will not be shown again."
+
+Delete button: confirm dialog "Delete '{name}' environment? This will disable all flags 
+in this environment and cannot be undone." → if confirmed, soft-delete env, 
+disable all FeatureFlagEnvironmentState for this env
+
+Drag handle column for reordering (SortOrder) — use HTML5 drag/drop
+
+--- ACCESS TAB ---
+
+Table: Avatar | Name | Email | Role badge | Added | Remove button
+Owner row: no remove button, "Owner" badge (accent color)
+Member row: "Member" badge (text-muted) + trash icon button
+
+"Add Member" button → modal:
+  Searchable select input (filter existing ApplicationUsers not already in project)
+  Role dropdown: Member (Owner cannot be assigned here, only one owner)
+  Add → creates ProjectMember record
+
+--- ACTIVITY TAB ---
+
+Timeline list (not table):
+Each entry:
+  [Avatar circle] [FullName] [action verb] "[flag name]" in [env badge] • [time ago]
+  
+  action verbs by ChangeType:
+    Created → "created flag"
+    Enabled → "enabled"  (text in success color)
+    Disabled → "disabled" (text in danger color)
+    StrategyUpdated → "updated targeting for"
+    Archived → "archived"
+
+Paginate 20 per page. Show page numbers at bottom.
+
+### Flag Detail (/projects/{slug}/flags/{flagName})
+Breadcrumb: Projects › {project name} › {flag name}
+
+TOP card: Flag name (28px) + type badge + description + created by/date
+
+MAIN content: one card per environment, vertically stacked
+
+Each environment card:
+  Header row:
+    [Color badge: env name] 
+    [Master toggle — larger, 52px × 28px]
+    [Expand/collapse chevron]
+  
+  Expanded body:
+    ┌─ Targeting ──────────────────────────────────────────┐
+    │                                                       │
+    │ User Match Mode                                       │
+    │ [UserId] [UserEmail] [Both]  ← segmented button      │
+    │                                                       │
+    │ Allowed Users (whitelist)                             │
+    │ [input: type userId or email + Enter to add]          │
+    │ Chips row: [user1 ×] [user2 ×] [user3 ×]             │
+    │ (empty = all users allowed)                           │
+    │                                                       │
+    │ Rollout Percentage                                     │
+    │ [━━━━━━━━●━━━━] 75%                                  │
+    │ (slider, 0–100, shows "100% = all users")             │
+    │                                                       │
+    │ [Save changes]  (primary button, right-aligned)       │
+    └───────────────────────────────────────────────────────┘
+
+BELOW all env cards:
+  "Evaluation History" card
+  Last 24h bar chart per environment
+  Pure SVG chart: x-axis = time (5-min buckets), y-axis = evaluation count
+  Two stacked bars per bucket: true (accent) / false (danger-muted)
+  Legend: ● Enabled ● Disabled
+
+BOTTOM of page:
+  Danger zone card (border danger color):
+  "Archive this flag" — description + "Archive" danger button
+  Confirm modal before archiving
+
+### Create Flag (/projects/{slug}/flags/create)
+Card-based form:
+
+Field 1 — Toggle name:
+  Input with live validation (only [a-z0-9-] allowed, show red border if invalid)
+  Below input: live code preview box (dark bg, monospace font):
+    if (flagly.IsEnabled("{name}")) {
+        // new behavior
+    }
+
+Field 2 — Flag type:
+  3 option cards in a row (radio behavior):
+    [Icon] Release
+    "Controls rollout of new features"
+    
+    [Icon] Operational
+    "Runtime on/off switch"
+    
+    [Icon] Permission
+    "Grant access to users/groups"
+  
+  Selected: accent border + accent-muted background
+
+Field 3 — Description (textarea, optional)
+
+Submit button: "Create Toggle"
+Cancel link: back to project detail
+
+═══════════════════════════════════════════════════════════════
+## AJAX ENDPOINTS (Web Controllers, not SDK API)
+═══════════════════════════════════════════════════════════════
+
+POST /projects/{slug}/flags/{flagName}/toggle
+  [Authorize] [ValidateAntiForgeryToken]
+  Body JSON: { "environmentId": "guid", "enabled": true }
+  Action: update FeatureFlagEnvironmentState.IsEnabled
+          write FlagAuditLog entry
+          call cache.InvalidateByProjectIdAsync(projectId)
+  Response JSON: { "success": true, "flagName": "...", "enabled": true }
+
+POST /projects/{slug}/flags/{flagName}/targeting
+  [Authorize] [ValidateAntiForgeryToken]
+  Body JSON: { "environmentId": "guid", "userMatchMode": 0, 
+               "enabledForUserIds": "u1,u2", "enabledForUserEmails": "",
+               "rolloutPercentage": 100 }
+  Action: update targeting settings, invalidate cache, write audit log
+  Response JSON: { "success": true }
+
+POST /projects/{slug}/environments/add
+  [Authorize] [ValidateAntiForgeryToken]
+  Creates environment, returns { "success": true, "apiKey": "..." }
+
+DELETE /projects/{slug}/environments/{envId}
+  [Authorize]
+  Soft-deletes, disables all flags in env, invalidates cache
+  Response JSON: { "success": true }
+
+POST /projects/{slug}/members/add
+  [Authorize]
+  Body: { "userId": "...", "role": 1 }
+  Response JSON: { "success": true }
+
+DELETE /projects/{slug}/members/{memberId}
+  [Authorize]
+  Response JSON: { "success": true }
+
+═══════════════════════════════════════════════════════════════
+## JAVASCRIPT (wwwroot/js/flagly.js — vanilla JS, single file)
+═══════════════════════════════════════════════════════════════
+
+Implement these features:
+
+1. TOGGLE SWITCH HANDLER
+   document.querySelectorAll('.env-toggle').forEach(toggle => {
+     toggle.addEventListener('change', async (e) => {
+       const flagName = e.target.dataset.flagName;
+       const envId = e.target.dataset.envId;
+       const enabled = e.target.checked;
+       const slug = e.target.dataset.projectSlug;
+       
+       try {
+         const response = await fetch(`/projects/${slug}/flags/${flagName}/toggle`, {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+             'RequestVerificationToken': getAntiForgeryToken()
+           },
+           body: JSON.stringify({ environmentId: envId, enabled })
+         });
+         if (!response.ok) throw new Error();
+         showToast(`Flag ${enabled ? 'enabled' : 'disabled'} successfully`, 'success');
+       } catch {
+         e.target.checked = !enabled; // revert
+         showToast('Failed to update flag', 'error');
+       }
+     });
+   });
+
+2. TOAST NOTIFICATION SYSTEM
+   showToast(message, type) — type: 'success' | 'error' | 'warning'
+   Appears bottom-right, auto-dismisses after 3s
+   Animate in/out with CSS transitions
+   Stack multiple toasts
+
+3. MODAL SYSTEM
+   openModal(modalId) / closeModal(modalId)
+   Close on overlay click and Escape key
+   Focus trap inside modal
+
+4. CLIENT-SIDE SEARCH/FILTER
+   On keyup in search input, filter table rows by flag name
+   Case-insensitive, instant
+
+5. COPY TO CLIPBOARD
+   copyToClipboard(text) → navigator.clipboard.writeText
+   Used for API key copy buttons
+   Show "Copied!" tooltip that fades after 1.5s
+
+6. SIDEBAR MOBILE TOGGLE
+   toggleSidebar() — adds/removes .sidebar-open on body
+   Click overlay → close sidebar
+
+7. DROPDOWN MENUS (kebab menu, user menu)
+   Toggle .is-open class on parent
+   Close when clicking outside (document click handler)
+
+8. PASSWORD SHOW/HIDE toggle on login page
+
+9. ANTI-FORGERY TOKEN HELPER
+   function getAntiForgeryToken() {
+     return document.querySelector('input[name="__RequestVerificationToken"]')?.value
+       ?? document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+   }
+
+10. DRAG AND DROP for environment reorder
+    HTML5 drag/drop API on environment list rows
+    On drop: PATCH /projects/{slug}/environments/reorder 
+    Body: { orderedIds: ["id1", "id2", "id3"] }
+
+11. FLAG TYPE SELECTOR (Create page)
+    Click on type card → sets hidden input value, toggles .selected class
+
+12. USER CHIP INPUT (targeting whitelist)
+    On Enter or comma in input → create chip, clear input
+    Chip has × button to remove
+    Serialize chips to hidden comma-separated input on form submit
+
+13. RANGE SLIDER display
+    Input[type=range] → live update adjacent percentage text on input event
+
+═══════════════════════════════════════════════════════════════
+## SEED DATA
+═══════════════════════════════════════════════════════════════
+
+SeedData.InitializeAsync() runs on startup only if DB has no users:
+
+1. Admin user: admin@flagly.io / Flagly@2025! / FullName: "Admin"
+
+2. Demo project: "Demo Project", slug: "demo-project", owner: admin
+   Environments:
+     - "development" → color #6E7CF8, auto-generate ApiKey
+     - "staging"     → color #F5A623, auto-generate ApiKey
+     - "production"  → color #E74C3C, auto-generate ApiKey
+
+3. Sample flags (all environments, all disabled by default):
+   - "new-payment-flow"  (Release, description: "New checkout experience")
+   - "dark-mode"         (Operational, description: "Dark mode UI toggle")
+   - "premium-features"  (Permission, description: "Premium tier feature access")
+
+4. Add admin as Owner in ProjectMember for demo project.
+
+═══════════════════════════════════════════════════════════════
+## PROGRAM.CS WIRING (Flagly.Web)
+═══════════════════════════════════════════════════════════════
+
+Order matters — wire exactly as follows:
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Serilog
+builder.Host.UseSerilog((ctx, cfg) => cfg
+    .ReadFrom.Configuration(ctx.Configuration)
+    .WriteTo.Console()
+    .WriteTo.File("logs/flagly-.log", rollingInterval: RollingInterval.Day));
+
+// MVC
+builder.Services.AddControllersWithViews();
+
+// DB
+builder.Services.AddDbContext<FlaglyDbContext>(opt =>
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Identity
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt => {
+    opt.Password.RequiredLength = 8;
+    opt.Password.RequireUppercase = true;
+    opt.Password.RequireNonAlphanumeric = true;
+    opt.SignIn.RequireConfirmedEmail = false;
+    opt.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    opt.Lockout.MaxFailedAccessAttempts = 5;
+})
+.AddEntityFrameworkStores<FlaglyDbContext>()
+.AddDefaultTokenProviders();
+
+builder.Services.ConfigureApplicationCookie(opt => {
+    opt.LoginPath = "/account/login";
+    opt.LogoutPath = "/account/logout";
+    opt.AccessDeniedPath = "/account/login";
+    opt.SlidingExpiration = true;
+    opt.ExpireTimeSpan = TimeSpan.FromHours(8);
+});
+
+// Redis
+var redisConfig = builder.Configuration["Redis:ConnectionString"]!;
+var redis = ConnectionMultiplexer.Connect(redisConfig);
+builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+builder.Services.AddStackExchangeRedisCache(opt => {
+    opt.Configuration = redisConfig;
+});
+
+// Application services
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IFeatureFlagService, FeatureFlagService>();
+builder.Services.AddScoped<IFlagCacheService, RedisFlagCacheService>();
+builder.Services.AddScoped<IFlagAuditService, FlagAuditService>();
+builder.Services.AddScoped<IEnvironmentService, EnvironmentService>();
+builder.Services.AddScoped<IMetricsService, MetricsService>();
+builder.Services.AddSingleton<FlagEvaluator>();
+
+// AntiForgery
+builder.Services.AddAntiforgery(opt => {
+    opt.HeaderName = "RequestVerificationToken";
+});
+
+var app = builder.Build();
+
+app.UseExceptionHandler("/error");
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+
+// API Key middleware — only for /api routes
+app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/api"),
+    branch => branch.UseMiddleware<ApiKeyMiddleware>());
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Dashboard}/{action=Index}/{id?}");
+
+// Migrations + seed
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<FlaglyDbContext>();
+    await db.Database.MigrateAsync();
+    await SeedData.InitializeAsync(scope.ServiceProvider);
+}
+
+await app.RunAsync();
+
+═══════════════════════════════════════════════════════════════
+## PACKAGES REQUIRED
+═══════════════════════════════════════════════════════════════
+
+Flagly.Web + Flagly.Infrastructure:
+  Microsoft.AspNetCore.Identity.EntityFrameworkCore (latest for .NET 10)
+  Npgsql.EntityFrameworkCore.PostgreSQL
+  StackExchange.Redis
+  Microsoft.Extensions.Caching.StackExchangeRedis
+  Serilog.AspNetCore
+  Serilog.Sinks.Console
+  Serilog.Sinks.File
+
+Flagly.SDK:
+  Microsoft.Extensions.Hosting.Abstractions
+  Microsoft.Extensions.Http
+  Microsoft.Extensions.Caching.Memory
+  System.Text.Json
+
+DO NOT add:
+  Microsoft.AspNetCore.SignalR (not used)
+  AutoMapper
+  MediatR
+  Any frontend npm packages
+
+═══════════════════════════════════════════════════════════════
+## EF CORE CONVENTIONS
+═══════════════════════════════════════════════════════════════
+
+- All Guid PKs: .HasDefaultValueSql("gen_random_uuid()")
+- All DateTime: stored as timestamptz (UTC), use .HasColumnType("timestamptz")
+- jsonb columns (if any): .HasColumnType("jsonb")
+- Slug unique index: .HasIndex(x => x.Slug).IsUnique()
+- ApiKey unique index: .HasIndex(x => x.ApiKey).IsUnique()
+- Initial migration name: "InitialCreate"
+
+═══════════════════════════════════════════════════════════════
+## IMPLEMENTATION RULES FOR CURSOR
+═══════════════════════════════════════════════════════════════
+
+1. Generate ALL files completely — zero stubs, zero TODOs, zero placeholders
+2. Do NOT generate test projects or test files
+3. Do NOT use SignalR — not even a reference to the namespace
+4. All Razor views must be fully implemented with real data bindings
+5. Use ASP.NET Core Tag Helpers throughout (asp-for, asp-action, asp-controller, asp-route-*)
+6. Controller actions must be thin — delegate to service layer
+7. No AutoMapper — write explicit mapping methods in service layer
+8. All AJAX calls protected with anti-forgery token via RequestVerificationToken header
+9. Error handling: global exception middleware, Serilog logging, user-friendly error page
+10. Responsive: sidebar collapses on mobile, content remains scrollable
+11. All user-facing text must not be hardcoded in controllers — pass via ViewModels
+12. Use strongly-typed ViewModels for every View — no ViewBag for data
+13. DateTime.UtcNow everywhere — never DateTime.Now
+14. ApiKey generation: Guid.NewGuid().ToString("N") — 32 hex chars
+
+═══════════════════════════════════════════════════════════════
+## GENERATION ORDER — follow exactly
+═══════════════════════════════════════════════════════════════
+
+1. Flagly.sln + all .csproj files with correct project references
+2. Flagly.Core: Enums → Entities → DTOs → Interfaces → FlagEvaluator
+3. Flagly.Infrastructure: DbContext + EntityConfigurations → Repositories → 
+   RedisFlagCacheService → Service implementations → Migrations (InitialCreate)
+4. Flagly.SDK: FlaglyOptions → FlaglyContext → IFlaglyService → FlaglyService → 
+   FlaglyBackgroundService → ServiceCollectionExtensions
+5. Flagly.Web: Program.cs → Middleware → Controllers → ViewModels → 
+   _Layout + _Sidebar + _Topbar partials → Views (Login first, then Dashboard, 
+   Projects, Flags) → wwwroot/css/flagly.css → wwwroot/js/flagly.js → SeedData
+
+Do not stop between files. Generate the complete solution end to end.
