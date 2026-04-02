@@ -1,1 +1,1796 @@
+# FLAGLY — Feature Flag Management System v2
+# .NET Core 10 | Clean Architecture | PostgreSQL | Redis | ASP.NET Core Identity
+# Minimal API (FastEndpoints) + MVC Demo App | Kubernetes Multi-Pod Ready
+# Cursor: Generate the COMPLETE solution. No placeholders. No "TODO" comments.
+# Do not generate any test projects or test files.
+# Do NOT use SignalR anywhere in this project.
 
+═══════════════════════════════════════════════════════════════
+## SOLUTION STRUCTURE — CLEAN ARCHITECTURE
+═══════════════════════════════════════════════════════════════
+
+Solution name: Flagly
+
+Flagly/
+├── src/
+│   │
+│   ├── Flagly.Domain/                    ← Enterprise Business Rules
+│   │   ├── Entities/
+│   │   │   ├── ApplicationUser.cs
+│   │   │   ├── Project.cs
+│   │   │   ├── ProjectEnvironment.cs
+│   │   │   ├── ProjectMember.cs
+│   │   │   ├── FeatureFlag.cs
+│   │   │   ├── FeatureFlagEnvironmentState.cs
+│   │   │   ├── UserGroup.cs
+│   │   │   ├── UserGroupMember.cs
+│   │   │   ├── CompanyGroup.cs
+│   │   │   ├── CompanyGroupMember.cs
+│   │   │   ├── AuditLog.cs
+│   │   │   └── FlagEvaluationMetric.cs
+│   │   ├── Enums/
+│   │   │   ├── TargetMode.cs
+│   │   │   ├── IdentifierType.cs
+│   │   │   ├── CompanyIdentifierType.cs
+│   │   │   ├── ProjectMemberRole.cs
+│   │   │   ├── AuditAction.cs
+│   │   │   └── AuditCategory.cs
+│   │   ├── Interfaces/
+│   │   │   ├── Repositories/
+│   │   │   │   ├── IProjectRepository.cs
+│   │   │   │   ├── IFeatureFlagRepository.cs
+│   │   │   │   ├── IEnvironmentRepository.cs
+│   │   │   │   ├── IUserGroupRepository.cs
+│   │   │   │   ├── ICompanyGroupRepository.cs
+│   │   │   │   ├── IAuditLogRepository.cs
+│   │   │   │   ├── IMetricsRepository.cs
+│   │   │   │   └── IProjectMemberRepository.cs
+│   │   │   └── IUnitOfWork.cs
+│   │   └── Evaluation/
+│   │       └── FlagEvaluator.cs
+│   │
+│   ├── Flagly.Application/               ← Application Business Rules
+│   │   ├── Common/
+│   │   │   ├── Interfaces/
+│   │   │   │   ├── IFlagCacheService.cs
+│   │   │   │   ├── ICurrentUserService.cs
+│   │   │   │   └── IDataProtectionService.cs
+│   │   │   └── Models/
+│   │   │       └── PagedResult.cs
+│   │   ├── DTOs/
+│   │   │   ├── FeatureFlagDto.cs
+│   │   │   ├── GroupMemberDto.cs
+│   │   │   ├── CompanyMemberDto.cs
+│   │   │   ├── ProjectDto.cs
+│   │   │   ├── AuditLogDto.cs
+│   │   │   └── DashboardStatsDto.cs
+│   │   └── Services/
+│   │       ├── IProjectService.cs + ProjectService.cs
+│   │       ├── IFeatureFlagService.cs + FeatureFlagService.cs
+│   │       ├── IEnvironmentService.cs + EnvironmentService.cs
+│   │       ├── IUserGroupService.cs + UserGroupService.cs
+│   │       ├── ICompanyGroupService.cs + CompanyGroupService.cs
+│   │       ├── IAuditLogService.cs + AuditLogService.cs
+│   │       ├── IMetricsService.cs + MetricsService.cs
+│   │       ├── IProjectMemberService.cs + ProjectMemberService.cs
+│   │       └── IAdminService.cs + AdminService.cs
+│   │
+│   ├── Flagly.Infrastructure/            ← Frameworks & Drivers
+│   │   ├── Persistence/
+│   │   │   ├── FlaglyDbContext.cs
+│   │   │   ├── UnitOfWork.cs
+│   │   │   ├── Configurations/
+│   │   │   │   ├── ProjectConfiguration.cs
+│   │   │   │   ├── ProjectEnvironmentConfiguration.cs
+│   │   │   │   ├── ProjectMemberConfiguration.cs
+│   │   │   │   ├── FeatureFlagConfiguration.cs
+│   │   │   │   ├── FeatureFlagEnvironmentStateConfiguration.cs
+│   │   │   │   ├── UserGroupConfiguration.cs
+│   │   │   │   ├── UserGroupMemberConfiguration.cs
+│   │   │   │   ├── CompanyGroupConfiguration.cs
+│   │   │   │   ├── CompanyGroupMemberConfiguration.cs
+│   │   │   │   ├── AuditLogConfiguration.cs
+│   │   │   │   └── FlagEvaluationMetricConfiguration.cs
+│   │   │   ├── Migrations/
+│   │   │   │   └── [InitialCreate]
+│   │   │   └── SeedData.cs
+│   │   ├── Repositories/
+│   │   │   ├── ProjectRepository.cs
+│   │   │   ├── FeatureFlagRepository.cs
+│   │   │   ├── EnvironmentRepository.cs
+│   │   │   ├── UserGroupRepository.cs
+│   │   │   ├── CompanyGroupRepository.cs
+│   │   │   ├── AuditLogRepository.cs
+│   │   │   ├── MetricsRepository.cs
+│   │   │   └── ProjectMemberRepository.cs
+│   │   ├── Caching/
+│   │   │   └── RedisFlagCacheService.cs
+│   │   ├── Identity/
+│   │   │   └── CurrentUserService.cs
+│   │   └── DataProtection/
+│   │       └── RedisDataProtectionService.cs
+│   │
+│   ├── Flagly.Api/                       ← Minimal API (FastEndpoints)
+│   │   ├── Endpoints/
+│   │   │   ├── Client/
+│   │   │   │   ├── GetFeaturesEndpoint.cs
+│   │   │   │   └── PostMetricsEndpoint.cs
+│   │   │   └── Admin/
+│   │   │       └── (reserved for future internal API use)
+│   │   ├── Middleware/
+│   │   │   └── ApiKeyMiddleware.cs
+│   │   └── Program.cs
+│   │
+│   ├── Flagly.Web/                       ← MVC Management UI
+│   │   ├── Controllers/
+│   │   │   ├── AccountController.cs
+│   │   │   ├── DashboardController.cs
+│   │   │   ├── ProjectsController.cs
+│   │   │   ├── FlagsController.cs
+│   │   │   ├── GroupsController.cs
+│   │   │   ├── CompanyGroupsController.cs
+│   │   │   ├── SettingsController.cs
+│   │   │   └── AdminController.cs
+│   │   ├── Views/
+│   │   │   ├── Shared/
+│   │   │   │   ├── _Layout.cshtml
+│   │   │   │   ├── _Sidebar.cshtml
+│   │   │   │   ├── _Topbar.cshtml
+│   │   │   │   └── Error.cshtml
+│   │   │   ├── Account/
+│   │   │   │   └── Login.cshtml
+│   │   │   ├── Dashboard/
+│   │   │   │   └── Index.cshtml
+│   │   │   ├── Projects/
+│   │   │   │   ├── Index.cshtml
+│   │   │   │   ├── Detail.cshtml
+│   │   │   │   └── Create.cshtml
+│   │   │   ├── Flags/
+│   │   │   │   ├── Detail.cshtml
+│   │   │   │   └── Create.cshtml
+│   │   │   ├── Admin/
+│   │   │   │   ├── Index.cshtml
+│   │   │   │   ├── Users.cshtml
+│   │   │   │   ├── Roles.cshtml
+│   │   │   │   └── AuditLogs.cshtml
+│   │   │   └── Settings/
+│   │   │       └── Index.cshtml
+│   │   ├── ViewModels/
+│   │   │   ├── Admin/
+│   │   │   │   ├── UserListViewModel.cs
+│   │   │   │   ├── UserEditViewModel.cs
+│   │   │   │   ├── RoleListViewModel.cs
+│   │   │   │   └── AuditLogViewModel.cs
+│   │   │   └── [all other ViewModels per feature]
+│   │   ├── wwwroot/
+│   │   │   ├── css/flagly.css
+│   │   │   └── js/flagly.js
+│   │   ├── Middleware/
+│   │   │   └── (none — API key middleware lives in Flagly.Api)
+│   │   └── Program.cs
+│   │
+│   └── Flagly.SDK/                       ← Embedded SDK (classlib)
+│       ├── FlaglyClient.cs
+│       ├── FlaglyContext.cs
+│       ├── FlaglyOptions.cs
+│       ├── IFlaglyService.cs
+│       ├── FlaglyBackgroundService.cs
+│       └── ServiceCollectionExtensions.cs
+│
+└── Flagly.sln
+
+═══════════════════════════════════════════════════════════════
+## PROJECT REFERENCES
+═══════════════════════════════════════════════════════════════
+
+Flagly.Domain         → (no references)
+Flagly.Application    → Flagly.Domain
+Flagly.Infrastructure → Flagly.Application, Flagly.Domain
+Flagly.Api            → Flagly.Application, Flagly.Infrastructure
+Flagly.Web            → Flagly.Application, Flagly.Infrastructure
+Flagly.SDK            → (standalone, no internal references)
+
+═══════════════════════════════════════════════════════════════
+## CONFIGURATION — appsettings.json (Flagly.Web & Flagly.Api)
+═══════════════════════════════════════════════════════════════
+
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=flagly;Username=postgres;Password=8d998B46"
+  },
+  "Redis": {
+    "ConnectionString": "localhost:6379,password=1234"
+  },
+  "Flagly": {
+    "BaseUrl": "https://localhost:7001",
+    "CacheTtlSeconds": 30,
+    "ApiBaseUrl": "https://localhost:7002"
+  },
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "System": "Warning"
+      }
+    },
+    "WriteTo": [
+      { "Name": "Console" },
+      { "Name": "File", "Args": { "path": "logs/flagly-.log", "rollingInterval": "Day" } }
+    ]
+  }
+}
+
+KUBERNETES / ENVIRONMENT VARIABLES (override appsettings):
+  FLAGLY_DB_CONNECTION
+  FLAGLY_REDIS_CONNECTION
+  FLAGLY_BASE_URL
+  All sensitive values must be read via environment variables in production.
+  Use IConfiguration binding — never hardcode connection strings.
+
+═══════════════════════════════════════════════════════════════
+## KUBERNETES MULTI-POD — DATA PROTECTION
+═══════════════════════════════════════════════════════════════
+
+CRITICAL: Multiple pods share session state. ASP.NET Core Data Protection
+keys MUST be stored in Redis, not the local file system.
+
+In both Flagly.Web/Program.cs and Flagly.Api/Program.cs:
+
+  builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(
+        ConnectionMultiplexer.Connect(redisConnectionString),
+        "Flagly:DataProtection:Keys")
+    .SetApplicationName("Flagly")
+    .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
+
+This ensures all pods encrypt/decrypt session cookies with the same keys.
+Without this, users are logged out when load balancer routes to a different pod.
+
+NuGet required: Microsoft.AspNetCore.DataProtection.StackExchangeRedis
+
+Session cookie config:
+  builder.Services.ConfigureApplicationCookie(opts => {
+    opts.LoginPath = "/account/login";
+    opts.ExpireTimeSpan = TimeSpan.FromHours(8);
+    opts.SlidingExpiration = true;
+    opts.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    opts.Cookie.SameSite = SameSiteMode.Lax;
+    opts.Cookie.Name = "flagly.auth";
+  });
+
+═══════════════════════════════════════════════════════════════
+## DATABASE — ENTITIES (EF Core 10, Npgsql)
+═══════════════════════════════════════════════════════════════
+
+### ApplicationUser : IdentityUser
+- FullName (string, required, max 100)
+- CreatedAt (DateTime UTC)
+- IsActive (bool, default true)  ← Admin can deactivate users
+
+### Project
+- Id (Guid, PK)
+- Name (string, required, max 100)
+- Description (string, max 500)
+- Slug (string, unique, auto-generated lowercase-hyphen from Name)
+- OwnerId (string, FK → ApplicationUser.Id)
+- CreatedAt / UpdatedAt (DateTime UTC)
+- IsArchived (bool, default false)
+
+### ProjectEnvironment
+- Id (Guid, PK)
+- ProjectId (Guid, FK → Project)
+- Name (string, required, max 50)
+- SortOrder (int)
+- Color (string, hex):
+    "development" → #6E7CF8
+    "test"        → #2ECC71
+    "staging"     → #F5A623
+    "production"  → #E74C3C
+    anything else → #9B59B6
+- ApiKey (string, Guid.NewGuid().ToString("N"), unique index)
+- IsActive (bool, default true)
+- CreatedAt (DateTime UTC)
+
+### FeatureFlag
+- Id (Guid, PK)
+- ProjectId (Guid, FK → Project)
+- Name (string, slug format [a-z0-9-], unique per project)
+- Description (string, max 500)
+- CreatedByUserId (string, FK → ApplicationUser)
+- CreatedAt / UpdatedAt (DateTime UTC)
+- IsArchived (bool, default false)
+- LastSeenAt (DateTime? UTC)
+
+NOTE: No FlagType field. No RolloutPercentage field. These do not exist.
+
+### FeatureFlagEnvironmentState
+- Id (Guid, PK)
+- FeatureFlagId (Guid, FK → FeatureFlag)
+- ProjectEnvironmentId (Guid, FK → ProjectEnvironment)
+- IsEnabled (bool, default false)
+- TargetMode (enum): Everyone=0, SpecificUsers=1, UserGroup=2, Company=3
+  EXACTLY ONE TargetMode is active at a time. They are mutually exclusive.
+- TargetIdentifierType (enum): UserId=0, Email=1
+  (relevant only when TargetMode=SpecificUsers)
+- TargetUserList (string, nullable)
+  Comma-separated. Only when TargetMode=SpecificUsers.
+- TargetUserGroupId (Guid?, FK → UserGroup, nullable)
+  Only when TargetMode=UserGroup.
+- TargetCompanyGroupId (Guid?, FK → CompanyGroup, nullable)
+  Only when TargetMode=Company.
+- UpdatedAt (DateTime UTC)
+- UpdatedByUserId (string, FK → ApplicationUser)
+
+### UserGroup
+- Id (Guid, PK)
+- ProjectId (Guid, FK → Project)
+- Name (string, required, max 100)
+- Description (string, max 300, nullable)
+- CreatedByUserId (string, FK → ApplicationUser)
+- CreatedAt / UpdatedAt (DateTime UTC)
+Navigation: ICollection<UserGroupMember> Members
+
+### UserGroupMember
+- Id (Guid, PK)
+- UserGroupId (Guid, FK → UserGroup, cascade delete)
+- Identifier (string, required, max 200) ← userId or email
+- IdentifierType (enum): UserId=0, Email=1
+- AddedAt (DateTime UTC)
+- Unique index on (UserGroupId, Identifier)
+
+### CompanyGroup   ← NEW
+- Id (Guid, PK)
+- ProjectId (Guid, FK → Project)
+- Name (string, required, max 100)
+- Description (string, max 300, nullable)
+- CreatedByUserId (string, FK → ApplicationUser)
+- CreatedAt / UpdatedAt (DateTime UTC)
+Navigation: ICollection<CompanyGroupMember> Members
+
+### CompanyGroupMember   ← NEW
+- Id (Guid, PK)
+- CompanyGroupId (Guid, FK → CompanyGroup, cascade delete)
+- Identifier (string, required, max 20)
+  ← 10-digit VKN (tax number) or 11-digit TCKN (national ID)
+- IdentifierType (enum): Vkn=0, Tckn=1
+- AddedAt (DateTime UTC)
+- Unique index on (CompanyGroupId, Identifier)
+
+  VALIDATION RULES (enforced server-side):
+    VKN:  exactly 10 digits, numeric only, Luhn-like Turkish VKN algorithm
+    TCKN: exactly 11 digits, numeric only, first digit ≠ 0,
+          standard TCKN checksum algorithm
+
+### ProjectMember
+- Id (Guid, PK)
+- ProjectId (Guid, FK → Project)
+- UserId (string, FK → ApplicationUser)
+- Role (enum): Owner=0, Member=1
+- AddedAt (DateTime UTC)
+- AddedByUserId (string)
+- Unique index on (ProjectId, UserId)
+
+### AuditLog   ← UNIFIED (replaces FlagAuditLog, covers Admin actions too)
+- Id (Guid, PK)
+- Category (enum): Flag=0, Admin=1, Project=2
+- Action (enum): [see Enums section]
+- PerformedByUserId (string, FK → ApplicationUser)
+- PerformedByUserName (string) ← denormalized, never null
+- TargetEntityId (string, nullable)  ← flagId, userId, roleId etc.
+- TargetEntityName (string, nullable)
+- ProjectId (Guid?, nullable)
+- EnvironmentId (Guid?, nullable)
+- EnvironmentName (string, nullable) ← denormalized
+- PreviousValueJson (string, nullable)
+- NewValueJson (string, nullable)
+- CreatedAt (DateTime UTC)
+- IpAddress (string, nullable, max 45)  ← IPv4/IPv6
+
+Indexes: CreatedAt DESC, (Category, CreatedAt DESC), (ProjectId, CreatedAt DESC),
+         (TargetEntityId, CreatedAt DESC)
+
+### FlagEvaluationMetric
+- Id (Guid, PK)
+- FeatureFlagId (Guid, FK)
+- ProjectEnvironmentId (Guid, FK)
+- EvaluatedAt (DateTime UTC) — truncated to 5-minute bucket
+- TrueCount (long)
+- FalseCount (long)
+
+═══════════════════════════════════════════════════════════════
+## ENUMS (Flagly.Domain/Enums/)
+═══════════════════════════════════════════════════════════════
+
+public enum TargetMode
+{
+    Everyone      = 0,
+    SpecificUsers = 1,
+    UserGroup     = 2,
+    Company       = 3   // VKN or TCKN based
+}
+
+public enum IdentifierType    { UserId = 0, Email = 1 }
+public enum CompanyIdentifierType { Vkn = 0, Tckn = 1 }
+public enum ProjectMemberRole { Owner = 0, Member = 1 }
+
+public enum AuditCategory { Flag = 0, Admin = 1, Project = 2 }
+
+public enum AuditAction
+{
+    // Flag actions
+    FlagCreated          = 0,
+    FlagEnabled          = 1,
+    FlagDisabled         = 2,
+    FlagTargetingUpdated = 3,
+    FlagArchived         = 4,
+    // Admin actions
+    UserCreated          = 10,
+    UserUpdated          = 11,
+    UserDeactivated      = 12,
+    UserActivated        = 13,
+    UserPasswordReset    = 14,
+    RoleCreated          = 15,
+    RoleUpdated          = 16,
+    RoleDeleted          = 17,
+    UserRoleAssigned     = 18,
+    UserRoleRemoved      = 19,
+    // Project actions
+    ProjectCreated       = 20,
+    ProjectArchived      = 21,
+    MemberAdded          = 22,
+    MemberRemoved        = 23,
+    EnvironmentCreated   = 24,
+    EnvironmentDeleted   = 25,
+    ApiKeyRegenerated    = 26
+}
+
+═══════════════════════════════════════════════════════════════
+## UNIT OF WORK + REPOSITORY PATTERN
+═══════════════════════════════════════════════════════════════
+
+// Flagly.Domain/Interfaces/IUnitOfWork.cs
+public interface IUnitOfWork : IDisposable
+{
+    IProjectRepository Projects { get; }
+    IFeatureFlagRepository FeatureFlags { get; }
+    IEnvironmentRepository Environments { get; }
+    IUserGroupRepository UserGroups { get; }
+    ICompanyGroupRepository CompanyGroups { get; }
+    IAuditLogRepository AuditLogs { get; }
+    IMetricsRepository Metrics { get; }
+    IProjectMemberRepository ProjectMembers { get; }
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+    Task BeginTransactionAsync(CancellationToken ct = default);
+    Task CommitAsync(CancellationToken ct = default);
+    Task RollbackAsync(CancellationToken ct = default);
+}
+
+// Generic base repository interface
+public interface IRepository<T> where T : class
+{
+    Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default);
+    Task AddAsync(T entity, CancellationToken ct = default);
+    void Update(T entity);
+    void Remove(T entity);
+}
+
+// Specific repositories extend IRepository<T> with domain queries:
+
+IProjectRepository:
+  Task<Project?> GetBySlugAsync(string slug, CancellationToken ct = default);
+  Task<IReadOnlyList<Project>> GetByUserIdAsync(string userId, CancellationToken ct = default);
+  Task<bool> SlugExistsAsync(string slug, CancellationToken ct = default);
+
+IFeatureFlagRepository:
+  Task<FeatureFlag?> GetByNameAsync(Guid projectId, string name, CancellationToken ct = default);
+  Task<IReadOnlyList<FeatureFlag>> GetByProjectIdAsync(Guid projectId, bool includeArchived = false, CancellationToken ct = default);
+  Task<IReadOnlyList<FeatureFlagEnvironmentState>> GetStatesAsync(Guid flagId, CancellationToken ct = default);
+  Task<FeatureFlagEnvironmentState?> GetStateAsync(Guid flagId, Guid envId, CancellationToken ct = default);
+
+ICompanyGroupRepository:
+  Task<CompanyGroup?> GetByIdWithMembersAsync(Guid id, CancellationToken ct = default);
+  Task<IReadOnlyList<CompanyGroup>> GetByProjectIdAsync(Guid projectId, CancellationToken ct = default);
+  Task<bool> MemberExistsAsync(Guid groupId, string identifier, CancellationToken ct = default);
+  Task<int> GetFlagUsageCountAsync(Guid groupId, CancellationToken ct = default);
+
+IAuditLogRepository:
+  Task<PagedResult<AuditLog>> SearchAsync(
+      AuditLogSearchParams p, CancellationToken ct = default);
+  // AuditLogSearchParams: Category?, Action?, ProjectId?, PerformedByUserId?,
+  //   TargetEntityId?, DateFrom?, DateTo?, SearchTerm (fulltext across names),
+  //   Page, PageSize (max 100)
+
+// UnitOfWork.cs in Flagly.Infrastructure/Persistence/ implements IUnitOfWork.
+// All repositories take FlaglyDbContext via constructor injection.
+// Services ONLY interact via IUnitOfWork — never inject DbContext directly into services.
+
+═══════════════════════════════════════════════════════════════
+## IDENTITY & AUTHENTICATION
+═══════════════════════════════════════════════════════════════
+
+- ASP.NET Core Identity with ApplicationUser
+- Roles: "Admin", "User"
+- NO registration page. Login only at /account/login
+- All routes except /account/login require [Authorize]
+- [Authorize(Roles = "Admin")] on AdminController
+- After login → redirect to /dashboard
+- Logout: POST /account/logout (antiforgery protected)
+- Seed on startup if no users exist:
+    Email: admin@flagly.io | Password: Flagly@2025! | FullName: Admin | Role: Admin
+
+Admin capabilities:
+  - View all users, activate/deactivate users
+  - Create new users (set password directly)
+  - Reset any user's password
+  - Create / rename / delete roles
+  - Assign / remove roles to/from users
+  - View full audit log (searchable + paginated)
+
+═══════════════════════════════════════════════════════════════
+## CACHING — REDIS (SQL primary, write-through)
+═══════════════════════════════════════════════════════════════
+
+Strategy: SQL is the source of truth. Redis is a write-through cache.
+On write: save to SQL → immediately write to Redis → TTL = 30s.
+On read: Redis hit → return. Miss → load from SQL → write to Redis → return.
+On Redis failure: log warning, fall through to SQL. Never crash.
+
+Cache keys:
+  "flagly:flags:{projectId}:{environmentApiKey}" → JSON flag list (TTL 30s)
+  "flagly:project:{projectSlug}" → project + environments metadata (TTL 60s)
+
+IFlagCacheService (Flagly.Application/Common/Interfaces/):
+  Task<List<FeatureFlagDto>?> GetFlagsAsync(string cacheKey);
+  Task SetFlagsAsync(string cacheKey, List<FeatureFlagDto> flags, TimeSpan ttl);
+  Task InvalidateAsync(string cacheKey);
+  Task InvalidateByProjectIdAsync(Guid projectId);
+
+RedisFlagCacheService (Flagly.Infrastructure/Caching/):
+  - IConnectionMultiplexer via DI
+  - System.Text.Json serialization
+  - InvalidateByProjectIdAsync: SCAN "flagly:flags:{projectId}:*" → delete batch
+  - All Redis errors: catch, Serilog.Log.Warning, return null (never throw)
+
+On any flag / targeting / group / company group change:
+  1. Save to DB via UnitOfWork.SaveChangesAsync()
+  2. InvalidateByProjectIdAsync(projectId)
+  3. Write updated flag list to Redis immediately (write-through)
+  4. SDK re-fetches on next poll (≤30s)
+
+═══════════════════════════════════════════════════════════════
+## FLAG EVALUATION LOGIC
+═══════════════════════════════════════════════════════════════
+
+Flagly.Domain/Evaluation/FlagEvaluator.cs — pure static logic, no DI, no DB
+
+bool Evaluate(
+    FeatureFlagEnvironmentState state,
+    FlaglyContext context,
+    IReadOnlyList<GroupMemberDto>? resolvedUserGroupMembers = null,
+    IReadOnlyList<CompanyMemberDto>? resolvedCompanyMembers = null)
+
+STEP 1: if (!state.IsEnabled) → return false
+
+STEP 2: switch (state.TargetMode)
+
+  case Everyone:
+    return true
+
+  case SpecificUsers:
+    if (string.IsNullOrWhiteSpace(state.TargetUserList)) return true
+    var list = state.TargetUserList
+      .Split(',', StringSplitOptions.RemoveEmptyEntries)
+      .Select(x => x.Trim())
+      .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    return state.TargetIdentifierType == IdentifierType.UserId
+      ? context.UserId != null && list.Contains(context.UserId)
+      : context.UserEmail != null && list.Contains(context.UserEmail);
+
+  case UserGroup:
+    if (resolvedUserGroupMembers == null || !resolvedUserGroupMembers.Any())
+      return false
+    return resolvedUserGroupMembers.Any(m =>
+      (m.Type == IdentifierType.UserId
+        && string.Equals(m.Identifier, context.UserId, OrdinalIgnoreCase))
+      ||
+      (m.Type == IdentifierType.Email
+        && string.Equals(m.Identifier, context.UserEmail, OrdinalIgnoreCase)));
+
+  case Company:
+    if (resolvedCompanyMembers == null || !resolvedCompanyMembers.Any())
+      return false
+    // Company override: if the calling context's company identifier
+    // matches ANY member in the company group → flag is ON.
+    // This is company-level, user-independent: who the user is doesn't matter.
+    return resolvedCompanyMembers.Any(m =>
+      (m.Type == CompanyIdentifierType.Vkn
+        && !string.IsNullOrEmpty(context.CompanyVkn)
+        && string.Equals(m.Identifier, context.CompanyVkn, OrdinalIgnoreCase))
+      ||
+      (m.Type == CompanyIdentifierType.Tckn
+        && !string.IsNullOrEmpty(context.CompanyTckn)
+        && string.Equals(m.Identifier, context.CompanyTckn, OrdinalIgnoreCase)));
+
+  default: return false
+
+TargetMode values are MUTUALLY EXCLUSIVE. No priority chain.
+Each flag state has exactly one TargetMode set. The evaluator switches on it.
+
+═══════════════════════════════════════════════════════════════
+## SDK DTOs (Flagly.Application/DTOs/)
+═══════════════════════════════════════════════════════════════
+
+public class FeatureFlagDto
+{
+    public string Name { get; set; }
+    public bool IsEnabled { get; set; }
+    public string? Description { get; set; }
+    public TargetMode TargetMode { get; set; }
+    public IdentifierType? TargetIdentifierType { get; set; }
+    public List<string> TargetUserList { get; set; } = new();
+    public List<GroupMemberDto> UserGroupMembers { get; set; } = new();
+    public List<CompanyMemberDto> CompanyGroupMembers { get; set; } = new();
+}
+
+public class GroupMemberDto
+{
+    public string Identifier { get; set; }
+    public IdentifierType Type { get; set; }
+}
+
+public class CompanyMemberDto
+{
+    public string Identifier { get; set; }  // VKN or TCKN value
+    public CompanyIdentifierType Type { get; set; }
+}
+
+public class PagedResult<T>
+{
+    public List<T> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    public bool HasPreviousPage => Page > 1;
+    public bool HasNextPage => Page < TotalPages;
+}
+
+═══════════════════════════════════════════════════════════════
+## SDK (Flagly.SDK — classlib, standalone)
+═══════════════════════════════════════════════════════════════
+
+FlaglyOptions:
+  string ServerUrl
+  string ApiKey
+  string AppName
+  int PollingIntervalSeconds = 30
+  bool SendMetrics = true
+  bool DefaultWhenUnavailable = false
+
+FlaglyContext:
+  string? UserId
+  string? UserEmail
+  string? SessionId
+  string? CompanyVkn    ← NEW: 10-digit VKN string
+  string? CompanyTckn   ← NEW: 11-digit TCKN string
+  Dictionary<string, string> Properties = new()
+
+IFlaglyService:
+  bool IsEnabled(string flagName);
+  bool IsEnabled(string flagName, string userId);
+  bool IsEnabled(string flagName, FlaglyContext context);
+  Task RefreshAsync(CancellationToken ct = default);
+
+SDK internals:
+- FlaglyBackgroundService : BackgroundService
+  Startup + poll every PollingIntervalSeconds:
+    GET /api/client/features → store in ConcurrentDictionary<string, FeatureFlagDto>
+  On failure: log warning, keep stale cache
+- IsEnabled() is ALWAYS synchronous, ALWAYS zero-latency.
+  NEVER makes HTTP calls inside IsEnabled().
+- When IsEnabled(flagName, userId): build FlaglyContext { UserId = userId }
+- Auto-read userId from IHttpContextAccessor if registered (optional)
+- Metrics: ConcurrentQueue buffer → flush every 10s → POST /api/client/metrics
+- On flag not found: return DefaultWhenUnavailable
+
+Usage examples:
+  // Simple
+  if (flagly.IsEnabled("new-payment-flow")) { }
+
+  // User based
+  if (flagly.IsEnabled("dark-mode", currentUser.Id)) { }
+
+  // Full context with company
+  var ctx = new FlaglyContext {
+      UserId = currentUser.Id,
+      UserEmail = currentUser.Email,
+      CompanyVkn = currentUser.CompanyVkn   // "1234567890"
+  };
+  if (flagly.IsEnabled("enterprise-dashboard", ctx)) { }
+
+Registration:
+  builder.Services.AddFlaglySdk(options => {
+      options.ServerUrl = config["Flagly:ApiBaseUrl"];
+      options.ApiKey = config["Flagly:ApiKey"];
+      options.AppName = "my-app";
+  });
+
+═══════════════════════════════════════════════════════════════
+## FLAGLY.API — MINIMAL API (FastEndpoints)
+═══════════════════════════════════════════════════════════════
+
+Flagly.Api is a separate .NET 10 Minimal API project using FastEndpoints.
+It hosts only the SDK-facing endpoints. The management UI lives in Flagly.Web.
+
+Program.cs (Flagly.Api):
+  builder.Host.UseSerilog(...)
+  builder.Services.AddFastEndpoints()
+  builder.Services.AddDbContext<FlaglyDbContext>(Npgsql)
+  builder.Services.AddSingleton<IConnectionMultiplexer>(...)
+  builder.Services.AddStackExchangeRedisCache(...)
+  builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(..., "Flagly:DataProtection:Keys")
+    .SetApplicationName("Flagly")
+  builder.Services.AddScoped<IUnitOfWork, UnitOfWork>()
+  builder.Services.AddScoped<IFlagCacheService, RedisFlagCacheService>()
+  builder.Services.AddScoped<IMetricsService, MetricsService>()
+  builder.Services.AddSingleton<FlagEvaluator>()
+
+  app.UseMiddleware<ApiKeyMiddleware>()
+  app.UseFastEndpoints(c => {
+      c.Endpoints.RoutePrefix = "api";
+      c.Errors.UseProblemDetails();
+  })
+
+ApiKeyMiddleware:
+  Read "X-Api-Key" header → match ProjectEnvironment.ApiKey where IsActive=true
+  Inject matched ProjectEnvironment into HttpContext.Items["Environment"]
+  No match → 401 { "error": "Invalid API key" }
+
+### GET /api/client/features
+FastEndpoints Endpoint class: GetFeaturesEndpoint
+  [HttpGet("client/features")]
+  No [Authorize] — auth is via X-Api-Key header (ApiKeyMiddleware)
+  
+  Flow:
+    var env = HttpContext.Items["Environment"] as ProjectEnvironment;
+    cacheKey = $"flagly:flags:{env.ProjectId}:{env.ApiKey}";
+    cached = await _cache.GetFlagsAsync(cacheKey);
+    if (cached != null) return cached;
+    
+    flags = await _uow.FeatureFlags.GetByProjectIdAsync(env.ProjectId);
+    for each flag:
+      state = flag.States.First(s => s.ProjectEnvironmentId == env.Id)
+      dto = map to FeatureFlagDto
+      if state.TargetMode == UserGroup && state.TargetUserGroupId != null:
+        dto.UserGroupMembers = load members from UserGroup
+      if state.TargetMode == Company && state.TargetCompanyGroupId != null:
+        dto.CompanyGroupMembers = load members from CompanyGroup
+    
+    await _cache.SetFlagsAsync(cacheKey, dtos, TimeSpan.FromSeconds(30));
+    return response
+
+  Response:
+  {
+    "environment": "production",
+    "projectSlug": "my-project",
+    "fetchedAt": "2025-01-01T00:00:00Z",
+    "flags": [{
+      "name": "enterprise-dashboard",
+      "isEnabled": true,
+      "description": "...",
+      "targetMode": "Company",
+      "targetUserList": [],
+      "userGroupMembers": [],
+      "companyGroupMembers": [
+        { "identifier": "1234567890", "type": "Vkn" },
+        { "identifier": "12345678901", "type": "Tckn" }
+      ]
+    }]
+  }
+
+### POST /api/client/metrics
+FastEndpoints Endpoint class: PostMetricsEndpoint
+  [HttpPost("client/metrics")]
+  Body: { "flagName": "...", "wasEnabled": true, "userId": "u1" }
+  Action: upsert FlagEvaluationMetric (5-min bucket), update flag.LastSeenAt
+  Response: 200 OK { "success": true }
+
+═══════════════════════════════════════════════════════════════
+## ADMIN PANEL — Flagly.Web AdminController
+═══════════════════════════════════════════════════════════════
+
+[Authorize(Roles = "Admin")]
+Route prefix: /admin
+
+### Users Management (/admin/users)
+
+GET /admin/users
+  ViewModel: UserListViewModel
+    List of ApplicationUser with roles, IsActive, CreatedAt
+    Paginated (20/page), searchable by name/email (server-side)
+
+Admin actions per user:
+  POST /admin/users/create
+    Body: FullName, Email, Password, Roles[]
+    Creates ApplicationUser, assigns roles
+    Writes AuditLog (UserCreated)
+    
+  POST /admin/users/{userId}/edit
+    Body: FullName, IsActive, Roles[]
+    Updates user, writes AuditLog (UserUpdated | UserActivated | UserDeactivated)
+    
+  POST /admin/users/{userId}/reset-password
+    Body: NewPassword, ConfirmPassword
+    Admin resets any user's password directly (no old password needed)
+    Writes AuditLog (UserPasswordReset)
+    
+  POST /admin/users/{userId}/toggle-active
+    Toggles IsActive. If deactivating: invalidate their sessions via
+    SecurityStamp regeneration (UserManager.UpdateSecurityStampAsync)
+    Writes AuditLog
+
+### Roles Management (/admin/roles)
+
+GET /admin/roles
+  Lists all IdentityRoles + user count per role
+
+POST /admin/roles/create
+  Body: { "name": "..." }
+  Creates IdentityRole
+  Writes AuditLog (RoleCreated)
+
+POST /admin/roles/{roleId}/delete
+  Cannot delete "Admin" or "User" built-in roles (return 400)
+  Writes AuditLog (RoleDeleted)
+
+### Audit Log (/admin/audit-logs)
+
+GET /admin/audit-logs
+  ViewModel: AuditLogViewModel
+  
+  SEARCH FILTERS (all optional, combined with AND):
+    - Category (dropdown: All / Flag / Admin / Project)
+    - Action (dropdown: all AuditAction values, filtered by selected Category)
+    - ProjectId (dropdown: all projects)
+    - PerformedByUserId (searchable user dropdown)
+    - DateFrom / DateTo (date pickers)
+    - SearchTerm (free text — searches TargetEntityName, PerformedByUserName,
+                  EnvironmentName, NewValueJson)
+  
+  PAGINATION:
+    - Page size: 20
+    - Numbered pagination at bottom (show first, prev, 1-2-3, next, last)
+    - Total count displayed ("Showing 41–60 of 1,247 results")
+  
+  TABLE COLUMNS:
+    Time | Category | Action | Performed By | Target | Project | Environment | IP
+    
+    Time: relative ("5 minutes ago") + tooltip with exact datetime
+    Category: colored badge (Flag→accent, Admin→warning, Project→info)
+    Action: human-readable text from enum
+    Performed By: avatar initials + user name
+    Target: entity name (flag name, user email, etc.)
+    Project: project name (if applicable)
+    Environment: env badge with color (if applicable)
+    IP: monospace
+    
+    Row click → expand detail panel showing PreviousValueJson / NewValueJson
+    as formatted diff (side by side, old left red, new right green)
+  
+  EXPORT:
+    "Export CSV" button → GET /admin/audit-logs/export?[same filters]
+    Returns CSV download. Max 10,000 rows per export.
+
+═══════════════════════════════════════════════════════════════
+## VKN/TCKN VALIDATION
+═══════════════════════════════════════════════════════════════
+
+Implement as static helpers in Flagly.Domain/Validation/TurkishIdentifierValidator.cs
+
+static bool IsValidVkn(string vkn):
+  - Exactly 10 digits
+  - Standard Turkish VKN algorithm:
+    1. Extract digits d[0..9]
+    2. For i in 0..8: tmp[i] = (d[i] + (9-i)) % 10
+    3. For i in 0..8: v[i] = tmp[i] * (int)Math.Pow(2, 9-i) % 9; if v[i]==0 && tmp[i]!=0: v[i]=9
+    4. total = sum(v[0..8]) % 10
+    5. Check d[9] == total
+  - Return true if valid
+
+static bool IsValidTckn(string tckn):
+  - Exactly 11 digits
+  - First digit ≠ '0'
+  - d[10] = (sum of all 10 digits) % 10
+  - (d[0]+d[2]+d[4]+d[6]+d[8])*7 - (d[1]+d[3]+d[5]+d[7]) mod 10 == d[9]
+  - Return true if valid
+
+Server-side: Validate before saving CompanyGroupMember.
+Client-side: JavaScript validates format (digit count, first digit for TCKN)
+             before submitting the add form (show inline error immediately).
+Full checksum validation only server-side.
+
+═══════════════════════════════════════════════════════════════
+## UI DESIGN — DARK THEME, METRONIC-INSPIRED
+═══════════════════════════════════════════════════════════════
+
+Full dark theme. Custom CSS only (wwwroot/css/flagly.css).
+No Bootstrap. No Tailwind. No npm packages.
+Inter font via Google Fonts CDN.
+Vanilla JS only (wwwroot/js/flagly.js).
+
+CSS Custom Properties (:root):
+--bg-page:         #13131a
+--bg-card:         #1e1e2d
+--bg-card-hover:   #252536
+--bg-sidebar:      #1a1a27
+--bg-input:        #2b2b40
+--bg-topbar:       #1e1e2d
+--border-color:    #2b2b40
+--border-subtle:   #323248
+--text-primary:    #e8e8f0
+--text-secondary:  #787896
+--text-muted:      #4b4b6b
+--accent:          #6e7cf8
+--accent-hover:    #5a68f5
+--accent-muted:    rgba(110,124,248,0.15)
+--success:         #2ecc71
+--warning:         #f5a623
+--danger:          #e74c3c
+--info:            #3498db
+--success-muted:   rgba(46,204,113,0.15)
+--warning-muted:   rgba(245,166,35,0.15)
+--danger-muted:    rgba(231,76,60,0.15)
+--radius-sm:       6px
+--radius-md:       10px
+--radius-lg:       14px
+--shadow-card:     0 2px 12px rgba(0,0,0,0.4)
+--sidebar-width:   260px
+--topbar-height:   64px
+--font-sans:       'Inter', system-ui, sans-serif
+
+### _Layout.cshtml — CRITICAL
+In <head>: Google Fonts Inter link, flagly.css link
+Just before </body>:
+  <form id="__AjaxAntiForgeryForm" method="post">@Html.AntiForgeryToken()</form>
+  <script src="/js/flagly.js"></script>
+  <div id="toast-container" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px"></div>
+
+JS reads token via:
+  document.querySelector('#__AjaxAntiForgeryForm input[name="__RequestVerificationToken"]')?.value
+
+### Sidebar (_Sidebar.cshtml)
+Fixed left, 260px, bg-sidebar, border-right border-color.
+
+Top 64px: SVG "F" logo + "Flagly" text (700 weight)
+
+NAVIGATION section (10px muted uppercase label):
+  • Dashboard   → /dashboard
+  • Projects    → /projects
+
+ADMIN section (visible only to Admin role — @User.IsInRole("Admin")):
+  • Admin Panel → /admin/users  (user management default)
+
+ACCOUNT section:
+  • Settings    → /settings
+  • Logout      → POST /account/logout
+
+Bottom user card: 36px initials avatar, FullName, Email, Role badge
+
+Active item: 3px left border accent, bg accent-muted, text white
+Responsive: hidden <768px, overlay toggle
+
+### Topbar, Content Area, Cards, Buttons, Toggles, Tables, Forms
+[Identical to previous prompt — all design tokens, component styles preserved]
+
+Additions:
+  .badge-company: bg rgba(52,211,153,0.15), color #34d399  ← teal for company
+  Company identifier chip: teal accent variant
+
+═══════════════════════════════════════════════════════════════
+## PAGE IMPLEMENTATIONS
+═══════════════════════════════════════════════════════════════
+
+### Login Page — identical to previous prompt
+
+### Dashboard (/dashboard)
+4 stat cards + Recent Activity table — identical to previous prompt
+Recent Activity uses AuditLog (Category=Flag only for dashboard)
+
+### Projects List (/projects) — identical to previous prompt
+
+### Create Project (/projects/create) — identical to previous prompt
+
+### Project Detail (/projects/{slug})
+TABS: Overview | Environments | Groups | Companies | Access | Activity
+                                                    ^^^^^^^^
+                                         NEW TAB for Company Groups
+
+--- OVERVIEW TAB — identical to previous prompt ---
+
+--- ENVIRONMENTS TAB — identical to previous prompt ---
+
+--- GROUPS TAB — identical to previous prompt (UserGroup management) ---
+
+--- COMPANIES TAB ← NEW ---
+
+THIS TAB IS CRITICAL. Implement fully and completely.
+Mirrors the Groups tab but for CompanyGroup entities (VKN/TCKN).
+
+Layout: two-panel side by side
+LEFT panel (300px): company group list
+RIGHT panel (flex-1): company group detail / member management
+
+LEFT PANEL:
+  Header: "Company Groups" + "New Company Group" primary button (small)
+  
+  Company group cards:
+    Each card (clickable):
+      Group name (14px, 600)
+      Description (12px, text-muted, nullable)
+      Footer: badge "{N} companies" (.badge-company teal)
+               + badge "used in {N} flags" (badge-accent or muted if 0)
+    Selected: border accent, bg accent-muted
+    Empty: "No company groups yet. Create your first →"
+  
+  "New Company Group" → modal:
+    Name (required, max 100)
+    Description (optional, max 300)
+    [Create] + [Cancel]
+    On success: group auto-selected in right panel
+
+RIGHT PANEL:
+  When no group selected: centered "Select a company group to manage"
+  
+  When group selected:
+    Header: group name (18px, 600) + description
+    TOP-RIGHT: [Edit] pencil + [Delete] trash buttons
+    
+    Edit (inline): PATCH /projects/{slug}/company-groups/{groupId}
+    
+    Delete confirm:
+      If used by flags: warn "{N} flag(s) will reset to Everyone"
+      DELETE endpoint → clears panel
+    
+    MEMBERS SECTION:
+    
+    Sub-header: "Companies ({count})"
+    
+    ADD COMPANY FORM (always visible):
+    ┌─────────────────────────────────────────────────────────┐
+    │  Add company to this group                               │
+    │                                                          │
+    │  Identifier:                                             │
+    │  [_____________________________]                         │
+    │  VKN (10 digits) or TCKN (11 digits)                    │
+    │                                                          │
+    │  Type:  [● VKN]  [○ TCKN]                              │
+    │         (segmented button)                               │
+    │                                                          │
+    │  Client-side validation:                                 │
+    │    VKN selected  → must be exactly 10 digits, numeric   │
+    │    TCKN selected → must be 11 digits, first digit ≠ 0   │
+    │    Show inline error IMMEDIATELY on input blur or submit │
+    │                                                          │
+    │  [+ Add Company]  (primary small button)                │
+    └─────────────────────────────────────────────────────────┘
+    
+    Validation:
+      - Client: digit count + first-digit-for-TCKN check
+      - Server: full VKN/TCKN checksum algorithm + duplicate check
+      - Duplicate → 409 "Already in group"
+    
+    On success:
+      - Append row to table (no page reload)
+      - Clear input, green flash on border
+      - Update counts in left panel + right panel header
+    
+    MEMBER TABLE:
+      thead: Identifier | Type | Added | (remove)
+      
+      Each row:
+        Identifier: monospace, text-primary
+        Type: badge (.badge-company "VKN" / badge-info "TCKN")
+        Added: relative time
+        Remove: × button (optimistic delete)
+          DELETE /projects/{slug}/company-groups/{groupId}/members/{memberId}
+    
+    Empty state: "No companies yet. Add VKN or TCKN above."
+    
+    Rows animate in/out with CSS transition (opacity + translateY, same as Groups tab)
+
+--- ACCESS TAB — identical to previous prompt ---
+
+--- ACTIVITY TAB --- 
+Same as previous prompt. Uses AuditLog (Category=Flag, ProjectId=current project).
+Searchable by flag name filter dropdown.
+Paginated 20/page.
+
+### Flag Detail (/projects/{slug}/flags/{flagName})
+Identical to previous prompt with one addition:
+
+ENVIRONMENT CARDS — Targeting section:
+  Segmented button now has 4 options:
+    [Everyone]  [Specific Users]  [User Group]  [Company]
+    
+    SUB-SECTION: Company (shown when selected)
+      "Select company group:" label
+      Select dropdown (full width):
+        "" → "Select a company group..."
+        Options: all CompanyGroups for this project
+          Format: "{name} ({memberCount} companies)"
+        Current selection pre-selected
+      
+      If no company groups exist:
+        Info box (bg accent-muted style):
+          "No company groups found for this project."
+          Link: "Create a company group in the Companies tab →"
+    
+    TARGETING SUMMARY in card header:
+      TargetMode=Company → "Group: {companyGroupName}" (badge-company teal, 12px)
+
+POST /projects/{slug}/flags/{name}/targeting body now includes:
+  { "targetMode": 3, "targetCompanyGroupId": "guid" }
+
+### Create Flag — identical to previous prompt
+
+### Settings Page — identical to previous prompt
+
+═══════════════════════════════════════════════════════════════
+## ADMIN PAGES
+═══════════════════════════════════════════════════════════════
+
+### Admin Layout
+Admin pages use the same _Layout.cshtml (sidebar + topbar).
+Sidebar shows "Admin Panel" section only to Admin role.
+AdminController has sub-nav tabs at top of each page:
+  [Users] [Roles] [Audit Logs]
+  Tab navigation links: /admin/users | /admin/roles | /admin/audit-logs
+
+### /admin/users
+Page title: "User Management"
+"Create User" primary button (top right) → modal
+
+TABLE:
+  Avatar | Full Name | Email | Roles | Status | Created | Actions
+  
+  Roles: up to 3 role badges, "+N more" if overflow
+  Status: badge-success "Active" / badge-danger "Inactive"
+  
+  Search bar (top, filters client-side by name/email — or server-side AJAX on input)
+  
+  Actions dropdown per row:
+    "Edit" → slide-in right panel or modal with:
+      FullName (editable)
+      IsActive toggle
+      Roles multi-select (checkboxes for each role)
+      [Save Changes]
+    "Reset Password" → modal:
+      New Password + Confirm Password
+      [Reset Password] → POST
+    "Deactivate" / "Activate" → quick toggle with confirm
+    Cannot deactivate yourself (currently logged in admin)
+    Cannot remove Admin role from yourself
+
+CREATE USER modal:
+  Full Name (required)
+  Email (required, unique)
+  Password (required, min 8 chars)
+  Roles (multi-select checkboxes)
+  [Create User] primary
+
+### /admin/roles
+Page title: "Role Management"
+TABLE: Role Name | User Count | Actions (Delete)
+  "Admin" and "User" rows have no delete button (built-in, protected)
+  
+"New Role" button → inline modal:
+  Role Name (required, unique)
+  [Create] → POST
+
+Delete: confirm modal "Delete role '{name}'? Users with this role will lose it."
+
+### /admin/audit-logs
+[See AUDIT LOG section above for full spec]
+Page title: "Audit Log"
+
+All filters as a collapsible filter bar (expanded by default):
+  Row 1: Category dropdown | Action dropdown | User dropdown | Project dropdown
+  Row 2: Date From | Date To | Search text input
+  Row 3: [Apply Filters] primary | [Clear] secondary | [Export CSV] accent
+
+TABLE: (see AUDIT LOG spec above)
+PAGINATION: numbered (see spec above)
+DETAIL EXPAND: click row → show diff panel below the row inline
+
+═══════════════════════════════════════════════════════════════
+## AJAX ENDPOINTS — Flagly.Web MVC Controllers
+═══════════════════════════════════════════════════════════════
+
+All [Authorize]. AJAX returns JSON. [ValidateAntiForgeryToken] on all mutating ops.
+
+[Existing endpoints from previous prompt — all preserved:]
+  POST   /projects/{slug}/flags/{name}/toggle
+  POST   /projects/{slug}/flags/{name}/targeting      ← body now supports targetMode=3 + targetCompanyGroupId
+  POST   /projects/{slug}/flags/{name}/archive
+  POST   /projects/{slug}/environments/add
+  DELETE /projects/{slug}/environments/{envId}
+  POST   /projects/{slug}/environments/{envId}/regenerate-key
+  PATCH  /projects/{slug}/environments/reorder
+  GET    /projects/{slug}/groups
+  POST   /projects/{slug}/groups
+  PATCH  /projects/{slug}/groups/{groupId}
+  DELETE /projects/{slug}/groups/{groupId}
+  POST   /projects/{slug}/groups/{groupId}/members
+  DELETE /projects/{slug}/groups/{groupId}/members/{memberId}
+  GET    /projects/{slug}/groups/{groupId}/members
+  POST   /projects/{slug}/members/add
+  DELETE /projects/{slug}/members/{memberId}
+  GET    /projects/{slug}/members/search
+  PATCH  /settings/profile
+  POST   /settings/change-password
+
+[NEW company group endpoints:]
+  GET    /projects/{slug}/company-groups
+    → { "groups": [{ "id","name","description","memberCount","flagUsageCount" }] }
+
+  POST   /projects/{slug}/company-groups
+    Body: { "name":"Enterprise Clients", "description":"..." }
+    → { "success":true, "group":{ "id","name","description","memberCount":0,"flagUsageCount":0 } }
+
+  PATCH  /projects/{slug}/company-groups/{groupId}
+    Body: { "name":"...", "description":"..." }
+    → { "success":true }
+
+  DELETE /projects/{slug}/company-groups/{groupId}
+    Query: ?confirm=true
+    Without confirm: → { "affectedFlags": N, "requiresConfirm": true }
+    With confirm:    → delete group, reset affected states → { "success":true }
+
+  POST   /projects/{slug}/company-groups/{groupId}/members
+    Body: { "identifier":"1234567890", "identifierType":0 }
+    Server validates VKN/TCKN checksum algorithm.
+    On invalid: → 400 { "success":false, "error":"Invalid VKN format" }
+    On duplicate: → 409 { "success":false, "error":"Already in group" }
+    On success: → { "success":true, "member":{ "id","identifier","identifierType","addedAt" } }
+
+  DELETE /projects/{slug}/company-groups/{groupId}/members/{memberId}
+    → { "success":true }
+
+  GET    /projects/{slug}/company-groups/{groupId}/members
+    → { "members": [{ "id","identifier","identifierType","addedAt" }] }
+
+[NEW admin endpoints — [Authorize(Roles="Admin")]:]
+  GET    /admin/users/list?page=1&q=search
+    → { "users": [...], "totalCount": N, "page": 1, "totalPages": N }
+
+  POST   /admin/users/create
+    Body: { "fullName","email","password","roles":["Admin","User"] }
+    → { "success":true, "userId":"..." }
+
+  POST   /admin/users/{userId}/edit
+    Body: { "fullName","isActive","roles":["..."] }
+    → { "success":true }
+
+  POST   /admin/users/{userId}/reset-password
+    Body: { "newPassword","confirmPassword" }
+    → { "success":true } or { "success":false, "errors":["..."] }
+
+  POST   /admin/users/{userId}/toggle-active
+    → { "success":true, "isActive": bool }
+
+  POST   /admin/roles/create
+    Body: { "name":"..." }
+    → { "success":true, "roleId":"..." }
+
+  DELETE /admin/roles/{roleId}
+    → { "success":true } or 400 if built-in role
+
+  GET    /admin/audit-logs/list?category=&action=&projectId=&userId=&dateFrom=&dateTo=&search=&page=1
+    → { "items":[...], "totalCount": N, "page": 1, "totalPages": N }
+
+  GET    /admin/audit-logs/export?[same filters]
+    → CSV file download, Content-Disposition: attachment; filename="audit-log-{date}.csv"
+
+═══════════════════════════════════════════════════════════════
+## JAVASCRIPT (wwwroot/js/flagly.js — complete, vanilla only)
+═══════════════════════════════════════════════════════════════
+
+All functions from previous prompt implemented fully (no stubs):
+  getAntiForgeryToken(), apiCall(), showToast(), openModal(), closeModal(),
+  toggleSidebar(), initTabs(), initFlagToggles(), initFlagSearch(),
+  copyToClipboard(), initEnvDragDrop(), initChipInputs(),
+  initSegmentedButtons(), initFlagNamePreview(), formatTimeAgo(),
+  initPasswordToggle(), initTargetingForms(), initGroupsTab(),
+  selectGroup(), loadGroupMembers(), renderMemberTable(), memberRowHtml(),
+  addMember(), removeMember(), updateMemberCount(),
+  showInputError(), clearInputError(), isValidEmail(), escapeHtml()
+
+NEW functions:
+
+// ── COMPANY GROUPS TAB ──────────────────────────────────────
+
+let selectedCompanyGroupId = null;
+
+function initCompanyGroupsTab() {
+  // Mirror of initGroupsTab() but for company groups
+  // Attach click handlers to company group cards in left panel
+  // "New Company Group" button → openModal('newCompanyGroupModal')
+}
+
+function selectCompanyGroup(groupId) {
+  selectedCompanyGroupId = groupId;
+  loadCompanyGroupMembers(groupId);
+}
+
+async function loadCompanyGroupMembers(groupId) {
+  const projectSlug = document.getElementById('companiesTab').dataset.projectSlug;
+  const { ok, data } = await apiCall(
+    `/projects/${projectSlug}/company-groups/${groupId}/members`
+  );
+  if (!ok) { showToast('Failed to load companies', 'error'); return; }
+  renderCompanyMemberTable(data.members);
+  updateCompanyMemberCount(groupId, data.members.length);
+}
+
+function renderCompanyMemberTable(members) {
+  // Identical structure to renderMemberTable()
+  // Type badge: identifierType===0 → badge-company "VKN"
+  //             identifierType===1 → badge-info "TCKN"
+}
+
+function validateCompanyIdentifier(identifier, type) {
+  // type 0 = VKN, type 1 = TCKN
+  // VKN: /^\d{10}$/.test(identifier)
+  // TCKN: /^\d{11}$/.test(identifier) && identifier[0] !== '0'
+  // Returns { valid: bool, error: string }
+}
+
+async function addCompanyMember() {
+  // Mirror of addMember() with:
+  //   - validateCompanyIdentifier() client-side check
+  //   - POST /projects/{slug}/company-groups/{groupId}/members
+  //   - Handle 400 (invalid format) and 409 (duplicate) distinctly
+}
+
+async function removeCompanyMember(memberId) {
+  // Mirror of removeMember() for company groups
+  // DELETE /projects/{slug}/company-groups/{groupId}/members/{memberId}
+}
+
+function updateCompanyMemberCount(groupId, count) {
+  // Updates left panel badge and right panel header
+}
+
+// ── ADMIN — USER MANAGEMENT ──────────────────────────────────
+
+function initAdminUsers() {
+  // Search input → debounce 300ms → GET /admin/users/list?q=... → re-render table
+  // "Create User" button → openModal('createUserModal')
+  // Edit buttons → openModal('editUserModal'), load user data into form
+  // Reset Password buttons → openModal('resetPasswordModal')
+  // Toggle Active buttons → call toggle-active endpoint
+}
+
+async function createUser() {
+  // Collect form data from createUserModal
+  // POST /admin/users/create
+  // On success: close modal, reload user list, showToast success
+}
+
+async function editUser(userId) {
+  // PATCH /admin/users/{userId}/edit
+  // On success: close modal, update row in table, showToast success
+}
+
+async function resetUserPassword(userId) {
+  // POST /admin/users/{userId}/reset-password
+  // Client validation: passwords match, min 8 chars
+  // On success: close modal, showToast "Password reset successfully"
+}
+
+async function toggleUserActive(userId, currentState) {
+  // POST /admin/users/{userId}/toggle-active
+  // On success: update status badge in row
+}
+
+// ── AUDIT LOG — FILTER + PAGINATION ──────────────────────────
+
+function initAuditLogFilters() {
+  // Category dropdown change → repopulate Action dropdown with
+  //   actions that belong to that category (from a JS constant map)
+  // "Apply Filters" button → load page 1 with current filters
+  // "Clear" button → reset all filters, reload
+  // Pagination: click page number → load that page
+  // Row click → toggle inline diff expansion
+}
+
+async function loadAuditLogs(page = 1) {
+  // Build query string from filter form values
+  // GET /admin/audit-logs/list?...
+  // Re-render table tbody + pagination controls
+}
+
+function renderAuditLogRow(entry) {
+  // Returns HTML string for one audit log row
+  // Includes data attributes for diff expansion
+}
+
+function toggleAuditLogDetail(row) {
+  // Click row → show/hide detail panel below row
+  // Format PreviousValueJson / NewValueJson as side-by-side diff
+  // Old values: red background text
+  // New values: green background text
+  // If no prev/new values: show "N/A"
+}
+
+// ── INIT (extend existing DOMContentLoaded) ──────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  // [all existing init calls from previous prompt]
+  initTabs();
+  initFlagToggles();
+  initFlagSearch();
+  initChipInputs();
+  initSegmentedButtons();
+  initFlagNamePreview();
+  initPasswordToggle();
+  initTargetingForms();
+  initGroupsTab();
+  initCompanyGroupsTab();  // NEW
+  initEnvDragDrop();
+  initAdminUsers();         // NEW (no-op if not on admin page)
+  initAuditLogFilters();    // NEW (no-op if not on audit log page)
+
+  // Add company member button
+  document.getElementById('addCompanyMemberBtn')
+    ?.addEventListener('click', addCompanyMember);
+  document.getElementById('companyMemberIdentifierInput')
+    ?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addCompanyMember(); }
+    });
+
+  // [existing global handlers from previous prompt]
+  document.getElementById('addMemberBtn')?.addEventListener('click', addMember);
+  document.getElementById('memberIdentifierInput')
+    ?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addMember(); }});
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.dropdown'))
+      document.querySelectorAll('.dropdown.is-open').forEach(d => d.classList.remove('is-open'));
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape')
+      document.querySelectorAll('.modal.is-open').forEach(m => closeModal(m.id));
+  });
+});
+
+═══════════════════════════════════════════════════════════════
+## SEED DATA
+═══════════════════════════════════════════════════════════════
+
+SeedData.InitializeAsync() — runs only if DB has no users.
+
+1. Roles: "Admin", "User"
+
+2. Users:
+   admin@flagly.io / Flagly@2025! / FullName: Admin / Role: Admin
+   user@flagly.io  / Flagly@2025! / FullName: Demo User / Role: User
+
+3. Demo project: "Demo Project", slug "demo-project", owner admin
+   Environments:
+     "development" → #6E7CF8 | "staging" → #F5A623 | "production" → #E74C3C
+
+4. UserGroups:
+   "Internal Team": [{ "admin@flagly.io", Email }]
+   "Beta Testers":  [{ "beta-user-1", UserId }, { "beta-user-2", UserId }]
+
+5. CompanyGroups:
+   "Enterprise Clients": [
+     { "3230672404", Vkn },     ← valid test VKN
+     { "7770345612", Vkn }      ← valid test VKN
+   ]
+   "Government Agencies": [
+     { "12345678901", Tckn }    ← valid test TCKN (checksum correct)
+   ]
+
+6. Flags:
+   "new-payment-flow":
+     dev → enabled, Everyone
+     staging → enabled, UserGroup: Internal Team
+     prod → disabled, Everyone
+
+   "dark-mode":
+     dev → enabled, Everyone
+     staging → enabled, SpecificUsers/Email: "admin@flagly.io"
+     prod → disabled, Everyone
+
+   "enterprise-dashboard":      ← NEW: Company-based flag
+     dev → enabled, Everyone
+     staging → enabled, Company: Enterprise Clients
+     prod → enabled, Company: Enterprise Clients
+
+   "premium-features":
+     dev → enabled, Everyone
+     staging → disabled, Everyone
+     prod → disabled, Everyone
+
+7. ProjectMember: admin + user@flagly.io as Owner + Member of demo-project.
+
+8. Write AuditLog entries for each flag creation (FlagCreated) and
+   the enterprise-dashboard Company targeting (FlagTargetingUpdated).
+
+═══════════════════════════════════════════════════════════════
+## PROGRAM.CS — Flagly.Web
+═══════════════════════════════════════════════════════════════
+
+Wire in this exact order:
+
+builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration))
+builder.Services.AddControllersWithViews()
+builder.Services.AddDbContext<FlaglyDbContext>(opt =>
+    opt.UseNpgsql(connectionString))
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt => {
+    opt.Password.RequireDigit = true;
+    opt.Password.RequiredLength = 8;
+    opt.User.RequireUniqueEmail = true;
+})
+.AddEntityFrameworkStores<FlaglyDbContext>()
+.AddDefaultTokenProviders()
+
+builder.Services.ConfigureApplicationCookie(opts => {
+    opts.LoginPath = "/account/login";
+    opts.ExpireTimeSpan = TimeSpan.FromHours(8);
+    opts.SlidingExpiration = true;
+    opts.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    opts.Cookie.Name = "flagly.auth";
+})
+
+var redis = ConnectionMultiplexer.Connect(redisConfig);
+builder.Services.AddSingleton<IConnectionMultiplexer>(redis)
+builder.Services.AddStackExchangeRedisCache(opt => opt.Configuration = redisConfig)
+
+// KUBERNETES DATA PROTECTION — CRITICAL
+builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(redis, "Flagly:DataProtection:Keys")
+    .SetApplicationName("Flagly")
+    .SetDefaultKeyLifetime(TimeSpan.FromDays(90))
+
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>()
+builder.Services.AddScoped<IFlagCacheService, RedisFlagCacheService>()
+builder.Services.AddScoped<IProjectService, ProjectService>()
+builder.Services.AddScoped<IFeatureFlagService, FeatureFlagService>()
+builder.Services.AddScoped<IEnvironmentService, EnvironmentService>()
+builder.Services.AddScoped<IUserGroupService, UserGroupService>()
+builder.Services.AddScoped<ICompanyGroupService, CompanyGroupService>()
+builder.Services.AddScoped<IAuditLogService, AuditLogService>()
+builder.Services.AddScoped<IMetricsService, MetricsService>()
+builder.Services.AddScoped<IProjectMemberService, ProjectMemberService>()
+builder.Services.AddScoped<IAdminService, AdminService>()
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>()
+builder.Services.AddSingleton<FlagEvaluator>()
+builder.Services.AddAntiforgery(opt => opt.HeaderName = "RequestVerificationToken")
+builder.Services.AddHttpContextAccessor()
+
+app.UseExceptionHandler("/error")
+app.UseHsts()
+app.UseHttpsRedirection()
+app.UseStaticFiles()
+app.UseRouting()
+app.UseAuthentication()
+app.UseAuthorization()
+app.MapControllerRoute("default", "{controller=Dashboard}/{action=Index}/{id?}")
+app.MapControllerRoute("admin", "admin/{action=Users}/{id?}", new { controller = "Admin" })
+
+await MigrateAndSeedAsync(app);
+
+═══════════════════════════════════════════════════════════════
+## PROGRAM.CS — Flagly.Api
+═══════════════════════════════════════════════════════════════
+
+builder.Host.UseSerilog(...)
+builder.Services.AddFastEndpoints()
+builder.Services.AddDbContext<FlaglyDbContext>(opt => opt.UseNpgsql(connectionString))
+
+var redis = ConnectionMultiplexer.Connect(redisConfig);
+builder.Services.AddSingleton<IConnectionMultiplexer>(redis)
+builder.Services.AddStackExchangeRedisCache(...)
+
+// KUBERNETES DATA PROTECTION
+builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(redis, "Flagly:DataProtection:Keys")
+    .SetApplicationName("Flagly")
+
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>()
+builder.Services.AddScoped<IFlagCacheService, RedisFlagCacheService>()
+builder.Services.AddScoped<IMetricsService, MetricsService>()
+builder.Services.AddSingleton<FlagEvaluator>()
+
+app.UseMiddleware<ApiKeyMiddleware>()
+app.UseFastEndpoints(c => {
+    c.Endpoints.RoutePrefix = "api";
+    c.Errors.UseProblemDetails();
+    c.Serializer.Options.Converters.Add(new JsonStringEnumConverter());
+})
+
+═══════════════════════════════════════════════════════════════
+## NuGet PACKAGES
+═══════════════════════════════════════════════════════════════
+
+Flagly.Domain: (no external packages — pure domain)
+
+Flagly.Application: (no external packages — pure application logic)
+
+Flagly.Infrastructure:
+  Microsoft.AspNetCore.Identity.EntityFrameworkCore
+  Npgsql.EntityFrameworkCore.PostgreSQL
+  StackExchange.Redis
+  Microsoft.Extensions.Caching.StackExchangeRedis
+  Microsoft.AspNetCore.DataProtection.StackExchangeRedis
+  Serilog.AspNetCore
+  Serilog.Sinks.Console
+  Serilog.Sinks.File
+
+Flagly.Api:
+  FastEndpoints
+  FastEndpoints.Swagger
+  Serilog.AspNetCore
+
+Flagly.Web:
+  Serilog.AspNetCore
+  Microsoft.AspNetCore.DataProtection.StackExchangeRedis
+
+Flagly.SDK:
+  Microsoft.Extensions.Hosting.Abstractions
+  Microsoft.Extensions.Http
+  System.Text.Json
+
+FORBIDDEN (do not add anywhere):
+  Microsoft.AspNetCore.SignalR
+  AutoMapper | MediatR | any npm package | Bootstrap | Tailwind
+
+═══════════════════════════════════════════════════════════════
+## EF CORE CONVENTIONS
+═══════════════════════════════════════════════════════════════
+
+All Guid PKs: .HasDefaultValueSql("gen_random_uuid()")
+All DateTime: .HasColumnType("timestamptz")
+All string enums stored as int in DB.
+
+Unique indexes:
+  Project.Slug
+  ProjectEnvironment.ApiKey
+  (ProjectMember: ProjectId + UserId)
+  (UserGroupMember: UserGroupId + Identifier)
+  (CompanyGroupMember: CompanyGroupId + Identifier)
+
+Cascade deletes:
+  UserGroupMember → on UserGroup delete
+  CompanyGroupMember → on CompanyGroup delete
+  FeatureFlagEnvironmentState → on FeatureFlag delete
+  FeatureFlagEnvironmentState → on ProjectEnvironment delete
+
+Performance indexes:
+  AuditLog.CreatedAt DESC
+  AuditLog.(Category, CreatedAt DESC)
+  AuditLog.(ProjectId, CreatedAt DESC)
+  FeatureFlagEnvironmentState.(FeatureFlagId, ProjectEnvironmentId) UNIQUE
+  FlagEvaluationMetric.(FeatureFlagId, ProjectEnvironmentId, EvaluatedAt)
+  ProjectEnvironment.ApiKey (for middleware lookup — must be fast)
+
+Migration name: "InitialCreate"
+
+═══════════════════════════════════════════════════════════════
+## AUDIT LOGGING — SERVICE IMPLEMENTATION
+═══════════════════════════════════════════════════════════════
+
+IAuditLogService / AuditLogService in Flagly.Application/Services/
+
+All write operations in FeatureFlagService, EnvironmentService,
+UserGroupService, CompanyGroupService, AdminService MUST call
+IAuditLogService to record the change WITHIN the same transaction.
+
+Pattern: services call uow.AuditLogs.Add(new AuditLog { ... })
+then uow.SaveChangesAsync() — single commit covers both the change + the log.
+
+AuditLogService provides helper methods:
+  Task LogFlagActionAsync(AuditAction action, FeatureFlag flag,
+      ProjectEnvironment env, string performedByUserId, string performedByName,
+      string ip, object? prev = null, object? next = null);
+      
+  Task LogAdminActionAsync(AuditAction action, string targetEntityId,
+      string targetEntityName, string performedByUserId,
+      string performedByName, string ip,
+      object? prev = null, object? next = null);
+      
+  Task LogProjectActionAsync(AuditAction action, Project project,
+      string performedByUserId, string performedByName, string ip,
+      string? envName = null, object? prev = null, object? next = null);
+
+PreviousValueJson / NewValueJson: serialize only the changed fields
+(not the entire entity) using System.Text.Json to keep logs readable.
+
+Example for FlagTargetingUpdated:
+  prev: { "targetMode": "Everyone" }
+  next: { "targetMode": "Company", "companyGroupId": "...", "companyGroupName": "Enterprise Clients" }
+
+ICurrentUserService:
+  string UserId { get; }
+  string UserName { get; }
+  string IpAddress { get; }
+  (Implemented via IHttpContextAccessor)
+
+═══════════════════════════════════════════════════════════════
+## FINAL RULES FOR CURSOR
+═══════════════════════════════════════════════════════════════
+
+1.  Generate ALL files completely. Zero stubs. Zero TODOs.
+2.  No test projects.
+3.  No SignalR — not even a using statement.
+4.  No FlagType enum or RolloutPercentage field anywhere.
+5.  TargetMode is MUTUALLY EXCLUSIVE — exactly one mode per flag state.
+6.  CompanyGroup and UserGroup are separate entities. Never conflate them.
+7.  FlagEvaluator is pure — no DB, no DI, no side effects.
+8.  SDK IsEnabled() is ALWAYS synchronous, ALWAYS zero-latency.
+9.  Services ONLY touch DB via IUnitOfWork — never inject DbContext directly.
+10. Redis Data Protection MUST be configured in BOTH Flagly.Web and Flagly.Api.
+11. #__AjaxAntiForgeryForm hidden form MUST be in _Layout.cshtml.
+12. Companies tab member add/remove MUST work via AJAX. No page reloads.
+13. Groups tab member add/remove MUST work via AJAX. No page reloads.
+14. All ViewModels are strongly typed. No ViewBag for data.
+15. DateTime.UtcNow everywhere.
+16. Controllers are thin. All business logic in service layer.
+17. Services use UnitOfWork. Repositories use DbContext.
+18. Manual mapping. No AutoMapper.
+19. All AJAX calls send RequestVerificationToken header.
+20. VKN/TCKN checksum validation runs server-side for every add operation.
+21. Admin actions (user/role management) are audit-logged.
+22. Flag actions (enable/disable/targeting) are audit-logged.
+23. Audit log search and pagination MUST be fully functional.
+24. On Redis failure: log warning, fall through to SQL. Never crash.
+25. Kubernetes-ready: no local file system state, all shared state in Redis/PostgreSQL.
+26. FastEndpoints used ONLY in Flagly.Api — not in Flagly.Web.
+27. Clean Architecture: outer layers depend on inner, never reverse.
+28. Each project in the solution has a single, clear responsibility.
+
+═══════════════════════════════════════════════════════════════
+## GENERATION ORDER
+═══════════════════════════════════════════════════════════════
+
+1.  Flagly.sln + all .csproj files (with correct project references)
+2.  Flagly.Domain:
+      Enums → Entities → Interfaces/Repositories → IUnitOfWork →
+      Evaluation/FlagEvaluator → Validation/TurkishIdentifierValidator
+3.  Flagly.Application:
+      Common/Models/PagedResult → Common/Interfaces →
+      DTOs → Service interfaces → Service implementations
+4.  Flagly.Infrastructure:
+      FlaglyDbContext → Entity Configurations → UnitOfWork →
+      Repositories (all 8) → RedisFlagCacheService →
+      CurrentUserService → InitialCreate migration → SeedData
+5.  Flagly.SDK:
+      FlaglyOptions → FlaglyContext (with CompanyVkn/Tckn) →
+      IFlaglyService → FlaglyClient → FlaglyBackgroundService →
+      ServiceCollectionExtensions
+6.  Flagly.Api:
+      Program.cs → ApiKeyMiddleware →
+      GetFeaturesEndpoint → PostMetricsEndpoint
+7.  Flagly.Web:
+      Program.cs →
+      Controllers (Account, Dashboard, Projects, Flags, Groups,
+                   CompanyGroups, Settings, Admin) →
+      ViewModels (all, strongly typed) →
+      _Layout.cshtml (WITH antiforgery form) →
+      _Sidebar.cshtml (with Admin section, role-gated) →
+      _Topbar.cshtml →
+      Login.cshtml → Error.cshtml → Dashboard/Index.cshtml →
+      Projects/Index.cshtml → Projects/Create.cshtml →
+      Projects/Detail.cshtml (ALL 6 tabs: Overview, Environments,
+                              Groups, Companies, Access, Activity) →
+      Flags/Create.cshtml → Flags/Detail.cshtml (4 targeting modes) →
+      Admin/Users.cshtml → Admin/Roles.cshtml → Admin/AuditLogs.cshtml →
+      Settings/Index.cshtml →
+      wwwroot/css/flagly.css → wwwroot/js/flagly.js
+
+Do not stop. Generate the complete solution.
